@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  --color-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-slate-grey: #475569;
+  --color-slate-dark: #1E293B;
+  --color-border-theme: #E2E8F0;
+  --color-text-main: #0F172A;
+  --color-text-muted: #64748B;
+  
+  --color-phoenix: #EF4444;
+  --color-pegasus: #3B82F6;
+  --color-centaur: #10B981;
+  --color-sphinx: #F59E0B;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-bg text-text-main;
+  }
+}
+
+.card {
+  @apply bg-surface border border-border-theme rounded-[12px] p-4 relative overflow-hidden;
+}
+
+.btn-slate {
+  @apply bg-slate-grey hover:bg-slate-dark text-white border-none py-2 px-4 rounded-[8px] text-[13px] font-semibold cursor-pointer transition-colors;
+}
+
+.btn-outline {
+  @apply bg-transparent border border-border-theme text-text-muted py-2 px-4 rounded-[8px] text-[13px] hover:bg-slate-50 transition-colors cursor-pointer;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-border-theme rounded-full;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300;
+}
+
+.custom-scrollbar-dark::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar-dark::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+.custom-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

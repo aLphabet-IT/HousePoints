@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Global Deny ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role helpers with safety checks
+    function isAdmin() {
+      return isSignedIn() && (
+        // Check exists first to prevent get().data errors on new users
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid))) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isTeacher() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+
+    function isStaff() {
+      return isAdmin() || isTeacher();
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.role in ['admin', 'teacher', 'student'];
+    }
+
+    function isValidPointLog(data) {
+      return data.houseId is string && 
+             data.points is number && 
+             data.timestamp == request.time;
+    }
+
+    // --- Routes ---
+
+    match /users/{userId} {
+      // Allow everyone to read user data for leaderboard/profiles
+      allow read: if true;
+      
+      // Allow user to create/update their own profile
+      allow create: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      
+      // Allow admin or user to update profile
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      
+      allow delete: if isAdmin();
+    }
+
+    match /houses/{houseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      allow update: if isStaff();
+    }
+
+    match /pointsLog/{logId} {
+      allow read: if true;
+      allow create: if isStaff() && isValidPointLog(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}

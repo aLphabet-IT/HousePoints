@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "teacher", "student"] },
+        "houseId": { "type": "string", "description": "Applicable for students" }
+      },
+      "required": ["uid", "name", "role"]
+    },
+    "House": {
+      "title": "House",
+      "description": "House details and current point totals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "totalPoints": { "type": "number" },
+        "rank": { "type": "number" },
+        "lastUpdated": { "type": "number" }
+      },
+      "required": ["id", "name", "totalPoints", "rank"]
+    },
+    "PointLog": {
+      "title": "Point Log",
+      "description": "Historical log of point transactions.",
+      "type": "object",
+      "properties": {
+        "houseId": { "type": "string" },
+        "points": { "type": "number" },
+        "reason": { "type": "string" },
+        "category": { "type": "string" },
+        "awardedBy": { "type": "string" },
+        "awardedByUid": { "type": "string" },
+        "role": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["houseId", "points", "reason", "awardedBy", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Individual user records."
+    },
+    "houses/{houseId}": {
+      "schema": "House",
+      "description": "House point aggregations."
+    },
+    "pointsLog/{logId}": {
+      "schema": "PointLog",
+      "description": "Transaction logs for point changes."
+    }
+  }
+}
