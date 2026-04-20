@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isPointModalOpen, setIsPointModalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -74,8 +75,12 @@ export default function AdminDashboard() {
         onClose={() => setIsPointModalOpen(false)} 
       />
       {/* Sidebar - Matching Image Style */}
-      <aside className="w-[280px] bg-white border-r border-slate-100 flex flex-col shrink-0">
-        <div className="p-8 mb-4">
+      <aside className={cn(
+        "bg-white border-r border-slate-100 flex flex-col shrink-0 transition-all duration-300 overflow-hidden",
+        sidebarOpen ? "w-[280px]" : "w-0 opacity-0 border-none"
+      )}>
+        <div className="w-[280px]"> {/* Fixed width container to prevent content squashing during transition */}
+          <div className="p-8 mb-4">
            <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
                 <Shield className="w-6 h-6" />
@@ -126,6 +131,7 @@ export default function AdminDashboard() {
               </button>
            </div>
         </div>
+        </div>
       </aside>
 
       {/* Main Content Area */}
@@ -133,7 +139,10 @@ export default function AdminDashboard() {
         {/* Top Header - Matching Image Style */}
         <header className="h-[72px] bg-white border-b border-slate-100 flex items-center justify-between px-10 shrink-0">
            <div className="flex items-center gap-6">
-              <button className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+              <button 
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"
+              >
                  <Menu className="w-5 h-5" />
               </button>
            </div>
