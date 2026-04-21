@@ -1,22 +1,47 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PointLog, HOUSES } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
-import { History, Plus, Minus, Hash } from 'lucide-react';
+import { History, Plus, Minus, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function ActivityFeed({ logs }: { logs: PointLog[] }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+
+  // Reset to first page if logs change significantly (e.g. filter or refresh)
+  // But we want to handle this gracefully if logs are just streaming in.
+  
+  const totalPages = Math.ceil(logs.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const currentLogs = logs.slice(startIndex, startIndex + rowsPerPage);
+
+  const goToNext = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const goToPrev = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
   return (
     <div className="card h-full flex flex-col">
-      <div className="panel-title text-[14px] font-bold text-text-main mb-4 flex items-center gap-2">
-        <History className="w-4 h-4 text-slate-grey" />
-        Live Activity
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="panel-title text-[14px] font-bold text-text-main flex items-center gap-2">
+          <History className="w-4 h-4 text-slate-grey" />
+          Live Activity
+        </div>
+        {logs.length > rowsPerPage && (
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+            Page {currentPage} of {totalPages}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
         <div className="flex flex-col gap-3">
           <AnimatePresence mode="popLayout">
-            {logs.map((log) => {
+            {currentLogs.map((log) => {
               const houseConfig = HOUSES.find(h => h.id === log.houseId);
               const isPositive = log.points > 0;
               
@@ -73,6 +98,43 @@ export default function ActivityFeed({ logs }: { logs: PointLog[] }) {
           )}
         </div>
       </div>
+
+      {logs.length > rowsPerPage && (
+        <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between shrink-0">
+          <button
+            onClick={goToPrev}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded-lg border border-slate-100 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ChevronLeft className="w-4 h-4 text-slate-600" />
+          </button>
+          
+          <div className="flex gap-1.5">
+            {[...Array(totalPages)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentPage(i + 1)}
+                className={cn(
+                  "w-6 h-6 rounded-md text-[10px] font-black transition-all",
+                  currentPage === i + 1 
+                    ? "bg-slate-900 text-white shadow-sm" 
+                    : "text-slate-400 hover:bg-slate-100"
+                )}
+              >
+                {i + 1}
+              </button>
+            )).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2))}
+          </div>
+
+          <button
+            onClick={goToNext}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded-lg border border-slate-100 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ChevronRight className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,22 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { User, UserRole, HOUSES } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield, User as UserIcon, Trash2, Edit2, Check, UserPlus, X, DatabaseZap, Mail, Lock } from 'lucide-react';
+import { Shield, User as UserIcon, Trash2, Edit2, Check, UserPlus, X, DatabaseZap, Mail, Lock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import Papa from 'papaparse';
 
 export default function UserManager() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('student');
+  const [editHouseId, setEditHouseId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
   
+  // Bulk import state
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importResults, setImportResults] = useState<{ success: number; errors: string[] } | null>(null);
+  const [pendingImportData, setPendingImportData] = useState<any[] | null>(null);
+
   // New User form state
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -25,6 +39,11 @@ export default function UserManager() {
   const [newRole, setNewRole] = useState<UserRole>('student');
   const [newHouseId, setNewHouseId] = useState<string>('phoenix');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole]);
 
   useEffect(() => {
     return onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -147,17 +166,151 @@ export default function UserManager() {
     }
   };
 
-  const handleUpdateRole = async (uid: string, newRole: UserRole) => {
+  const startEditing = (u: User) => {
+    setEditingId(u.uid);
+    setEditName(u.name);
+    setEditRole(u.role);
+    setEditHouseId(u.houseId);
+  };
+
+  const handleSaveEdit = async (uid: string) => {
     try {
-      await updateDoc(doc(db, 'users', uid), { 
-        role: newRole,
-        // Remove house data if they are no longer a student
-        houseId: newRole === 'student' ? 'phoenix' : null,
-        points: newRole === 'student' ? 0 : null
-      });
+      const updates: any = { 
+        name: editName,
+        role: editRole,
+      };
+
+      if (editRole === 'student') {
+        updates.houseId = editHouseId || 'phoenix';
+      } else {
+        updates.houseId = null;
+        updates.points = null;
+      }
+
+      await updateDoc(doc(db, 'users', uid), updates);
       setEditingId(null);
     } catch (err) {
-      console.error("Failed to update role:", err);
+      console.error("Failed to update user:", err);
+      alert("Failed to save changes. Check permissions.");
+    }
+  };
+
+  const downloadCSVTemplate = () => {
+    const csvContent = "name,email,password,role,houseId\nJohn Doe,john.doe@alphabet.school,Student123,student,phoenix\nJane Smith,jane.smith@alphabet.school,Student456,student,pegasus\nAdmin User,admin@alphabet.school,Admin789,admin,";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "user_import_template.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleBulkCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportResults(null); // Clear previous results
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.data && results.data.length > 0) {
+          setPendingImportData(results.data);
+        } else {
+          alert("The CSV file seems to be empty.");
+        }
+        e.target.value = '';
+      },
+      error: (error) => {
+        alert("CSV Parsing Error: " + error.message);
+        e.target.value = '';
+      }
+    });
+  };
+
+  const processBulkImport = async (data: any[]) => {
+    setPendingImportData(null);
+    setIsImporting(true);
+    setImportProgress({ current: 0, total: data.length });
+    setImportResults({ success: 0, errors: [] });
+
+    let successCount = 0;
+    const errors: string[] = [];
+
+    // Helper to normalize keys (strips BOM, trims, lowercase)
+    const normalizeKey = (key: string) => key.replace(/^\uFEFF/, '').trim().toLowerCase();
+
+    for (let i = 0; i < data.length; i++) {
+      const rawRow = data[i];
+      // Create a normalized row where keys are consistent
+      const row: any = {};
+      Object.keys(rawRow).forEach(key => {
+        row[normalizeKey(key)] = rawRow[key];
+      });
+
+      const { name, email, password, role, houseid } = row;
+
+      if (!name || !email || !password) {
+        errors.push(`Row ${i + 1}: Missing required fields. Expected 'name', 'email', and 'password'. Found keys: ${Object.keys(row).join(', ')}`);
+        setImportProgress(p => ({ ...p, current: i + 1 }));
+        continue;
+      }
+
+      const validatedRole: UserRole = (role && ['admin', 'teacher', 'student'].includes(role.toLowerCase().trim())) 
+        ? role.toLowerCase().trim() as UserRole 
+        : 'student';
+
+      let secondaryApp;
+      try {
+        const secondaryAppName = `Bulk_${Date.now()}_${i}`;
+        secondaryApp = initializeApp({ ...firebaseConfig }, secondaryAppName);
+        const secondaryAuth = getAuth(secondaryApp);
+        
+        // Ensure this auth doesn't disrupt main session
+        await setPersistence(secondaryAuth, inMemoryPersistence);
+        
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password.trim());
+        const authUser = userCredential.user;
+        await signOut(secondaryAuth);
+
+        const newUser: User = {
+          uid: authUser.uid,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          role: validatedRole,
+        };
+
+        if (validatedRole === 'student') {
+          newUser.houseId = (houseid || 'phoenix').toLowerCase().trim();
+          newUser.points = 0;
+        }
+
+        await setDoc(doc(db, 'users', authUser.uid), newUser);
+        successCount++;
+      } catch (err: any) {
+        console.error(`Bulk Error at Row ${i+1}:`, err);
+        errors.push(`Row ${i + 1} (${email}): ${err.code || err.message}`);
+      } finally {
+        if (secondaryApp) {
+          try { await deleteApp(secondaryApp); } catch (e) {}
+        }
+        setImportProgress(p => ({ ...p, current: i + 1 }));
+      }
+      
+      // Delay to avoid overwhelming the system
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    setIsImporting(false);
+    setImportResults({ success: successCount, errors });
+    if (errors.length > 0) {
+      alert(`Import Complete with Warnings. Created ${successCount} users. ${errors.length} errors occurred. Check the summary panel below.`);
+    } else {
+      alert(`Import Successful! All ${successCount} users created.`);
     }
   };
 
@@ -178,6 +331,18 @@ export default function UserManager() {
     }
   };
 
+  const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const currentDisplayedUsers = filteredUsers.slice(startIndex, startIndex + rowsPerPage);
+
+  const goToNext = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const goToPrev = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
   if (loading) return <div className="p-8 text-center text-text-muted">Loading user registry...</div>;
 
   return (
@@ -192,17 +357,156 @@ export default function UserManager() {
              <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-emerald-400" />
              Live Sync Enabled
            </div>
-           <button 
-            onClick={() => setShowAddForm(!showAddForm)}
-            className={cn(
-              "btn-slate py-1.5 px-3 flex items-center gap-2 text-[12px]",
-              showAddForm ? "bg-red-50 text-red-600 hover:bg-red-100" : ""
-            )}
-          >
-            {showAddForm ? <><X className="w-3.5 h-3.5" /> Cancel</> : <><UserPlus className="w-3.5 h-3.5" /> New User</>}
-          </button>
+           
+           <div className="flex items-center gap-2">
+             <input 
+               type="file" 
+               id="csv-upload" 
+               accept=".csv" 
+               className="hidden" 
+               onChange={handleBulkCSV}
+               disabled={isImporting}
+             />
+             <label 
+               htmlFor="csv-upload"
+               className={cn(
+                 "btn-outline py-1.5 px-3 flex items-center gap-2 text-[12px] cursor-pointer",
+                 isImporting && "opacity-50 pointer-events-none"
+               )}
+             >
+               <DatabaseZap className="w-3.5 h-3.5 text-slate-grey" />
+               Bulk Import (CSV)
+             </label>
+
+             <button 
+               onClick={downloadCSVTemplate}
+               className="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-tight"
+               title="Download Example CSV"
+             >
+               Get Template
+             </button>
+
+             <button 
+              onClick={() => setShowAddForm(!showAddForm)}
+              className={cn(
+                "btn-slate py-1.5 px-3 flex items-center gap-2 text-[12px]",
+                showAddForm ? "bg-red-50 text-red-600 hover:bg-red-100" : ""
+              )}
+            >
+              {showAddForm ? <><X className="w-3.5 h-3.5" /> Cancel</> : <><UserPlus className="w-3.5 h-3.5" /> New User</>}
+            </button>
+           </div>
         </div>
       </div>
+
+      {/* CSV Confirmation Step */}
+      {pendingImportData && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 p-6 bg-slate-900 rounded-2xl border border-slate-700 shadow-xl"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+              <DatabaseZap className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-white font-black text-[16px] leading-tight">Confirm Bulk Import</h3>
+              <p className="text-slate-400 text-[12px] font-medium">We found {pendingImportData.length} records in your CSV file.</p>
+            </div>
+          </div>
+          <div className="bg-white/5 p-4 rounded-xl mb-4 border border-white/5">
+             <p className="text-slate-300 text-[12px] leading-relaxed">
+               This process will create real authentication accounts for all <strong>{pendingImportData.length}</strong> users. 
+               The operation is sequential and may take a few minutes to complete safely without triggering rate limits.
+             </p>
+          </div>
+          <div className="flex items-center gap-3">
+             <button 
+               onClick={() => processBulkImport(pendingImportData)}
+               className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-2.5 rounded-xl transition-all flex items-center justify-center gap-2"
+             >
+               <Check className="w-4 h-4" /> Start Importing Now
+             </button>
+             <button 
+               onClick={() => setPendingImportData(null)}
+               className="px-6 py-2.5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/5 transition-all"
+             >
+               Cancel
+             </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Bulk Import Progress Section */}
+      {isImporting && (
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mb-6 p-4 bg-slate-900 rounded-2xl border border-white/5 border-slate-800"
+        >
+          <div className="flex items-center justify-between mb-2">
+             <span className="text-[12px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                Processing Bulk Import...
+             </span>
+             <span className="text-[12px] font-mono text-slate-400">
+                {importProgress.current} / {importProgress.total} Complete
+             </span>
+          </div>
+          <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+             <div 
+               className="h-full bg-emerald-500 transition-all duration-300"
+               style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+             />
+          </div>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium italic">
+             Please keep this tab open until the process finishes. Creating Auth accounts sequentially to ensure stability.
+          </p>
+        </motion.div>
+      )}
+
+      {importResults && (
+         <motion.div 
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           className={cn(
+             "mb-6 p-4 rounded-2xl border",
+             importResults.errors.length > 0 ? "bg-red-50/50 border-red-100" : "bg-emerald-50/50 border-emerald-100"
+           )}
+         >
+           <div className="flex items-center justify-between">
+              <div>
+                 <h4 className={cn(
+                   "text-[11px] font-black uppercase tracking-widest mb-1 flex items-center gap-2",
+                   importResults.errors.length > 0 ? "text-red-600" : "text-emerald-600"
+                 )}>
+                   {importResults.errors.length > 0 ? <AlertCircle className="w-3 h-3" /> : <Check className="w-3 h-3" />}
+                   Import Complete: {importResults.success} Successful
+                 </h4>
+                 {importResults.errors.length > 0 && (
+                   <p className="text-[10px] text-red-400 font-medium">{importResults.errors.length} errors occurred during processing.</p>
+                 )}
+              </div>
+              <button 
+               onClick={() => setImportResults(null)}
+               className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-tighter"
+             >
+                Dismiss
+             </button>
+           </div>
+
+           {importResults.errors.length > 0 && (
+             <div className="mt-3 pt-3 border-t border-red-100">
+               <div className="max-h-[120px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
+                  {importResults.errors.map((err, i) => (
+                    <p key={i} className="text-[10px] font-medium text-red-500 font-mono">{err}</p>
+                  ))}
+               </div>
+             </div>
+           )}
+         </motion.div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="flex items-center gap-3 mb-6 bg-slate-50 p-2 rounded-xl border border-slate-100">
@@ -326,29 +630,51 @@ export default function UserManager() {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((u) => (
+            {currentDisplayedUsers.map((u) => (
               <tr key={u.uid} className="group hover:bg-slate-50 transition-colors">
                 <td className="p-3 border-b border-slate-50">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-text-muted group-hover:bg-slate-200 transition-colors">
                        <UserIcon className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="font-bold text-text-main flex items-center gap-2">
-                        {u.name}
-                        {u.houseId && (
-                          <span className={cn(
-                            "text-[9px] font-black border px-1.5 py-0.5 rounded uppercase tracking-tighter",
-                            u.houseId === 'phoenix' ? "bg-red-50 text-red-500 border-red-100" :
-                            u.houseId === 'pegasus' ? "bg-blue-50 text-blue-500 border-blue-100" :
-                            u.houseId === 'centaur' ? "bg-green-50 text-green-500 border-green-100" :
-                            "bg-purple-50 text-purple-500 border-purple-100"
-                          )}>
-                            {u.houseId}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-text-muted opacity-40 font-mono truncate max-w-[120px]">{u.uid}</div>
+                    <div className="flex-1">
+                      {editingId === u.uid ? (
+                        <div className="flex flex-col gap-1">
+                          <input 
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="bg-white border border-border-theme p-1 rounded text-[13px] font-bold w-full"
+                          />
+                          {editRole === 'student' && (
+                            <select 
+                              value={editHouseId}
+                              onChange={(e) => setEditHouseId(e.target.value)}
+                              className="bg-white border border-border-theme p-1 rounded text-[10px] font-bold uppercase"
+                            >
+                              {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-bold text-text-main flex items-center gap-2">
+                            {u.name}
+                            {u.houseId && (
+                              <span className={cn(
+                                "text-[9px] font-black border px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                                u.houseId === 'phoenix' ? "bg-red-50 text-red-500 border-red-100" :
+                                u.houseId === 'pegasus' ? "bg-blue-50 text-blue-500 border-blue-100" :
+                                u.houseId === 'centaur' ? "bg-green-50 text-green-500 border-green-100" :
+                                "bg-purple-50 text-purple-500 border-purple-100"
+                              )}>
+                                {u.houseId}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-text-muted opacity-40 font-mono truncate max-w-[120px]">{u.uid}</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -375,8 +701,8 @@ export default function UserManager() {
                 <td className="p-3 border-b border-slate-50">
                   {editingId === u.uid ? (
                     <select 
-                      value={u.role}
-                      onChange={(e) => handleUpdateRole(u.uid, e.target.value as UserRole)}
+                      value={editRole}
+                      onChange={(e) => setEditRole(e.target.value as UserRole)}
                       className="bg-white border border-border-theme p-1 rounded font-bold text-[11px]"
                     >
                       <option value="admin">Admin</option>
@@ -395,17 +721,27 @@ export default function UserManager() {
                   )}
                 </td>
                 <td className="p-3 border-b border-slate-50 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => setEditingId(editingId === u.uid ? null : u.uid)}
-                      className="p-1.5 rounded hover:bg-slate-100 text-text-muted transition-colors"
-                      title="Edit Role"
-                    >
-                      {editingId === u.uid ? <Check className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
-                    </button>
+                  <div className="flex items-center justify-end gap-2 opacity-20 group-hover:opacity-100 transition-opacity">
+                    {editingId === u.uid ? (
+                      <button 
+                        onClick={() => handleSaveEdit(u.uid)}
+                        className="p-1.5 rounded hover:bg-emerald-50 text-emerald-600 transition-colors"
+                        title="Save Changes"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => startEditing(u)}
+                        className="p-1.5 rounded hover:bg-slate-100 text-text-muted transition-colors"
+                        title="Edit Profile"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button 
                       onClick={() => handleDeleteUser(u.uid)}
-                      className="p-1.5 rounded hover:bg-red-50 text-red-400 transition-colors"
+                      className="p-1.5 rounded hover:bg-red-50 text-red-500 transition-colors"
                       title="Delete User"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -425,6 +761,65 @@ export default function UserManager() {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredUsers.length > rowsPerPage && (
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between shrink-0">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Showing {startIndex + 1}-{Math.min(startIndex + rowsPerPage, filteredUsers.length)} of {filteredUsers.length} users
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPrev}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg border border-slate-100 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-600" />
+            </button>
+            
+            <div className="flex gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const pageNum = i + 1;
+                // Show first, last, and a few around current page
+                const isFirst = pageNum === 1;
+                const isLast = pageNum === totalPages;
+                const isNearCurrent = Math.abs(pageNum - currentPage) <= 1;
+
+                if (!isFirst && !isLast && !isNearCurrent) {
+                  if (pageNum === 2 || pageNum === totalPages - 1) {
+                    return <span key={pageNum} className="px-1 text-slate-300">...</span>;
+                  }
+                  return null;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={cn(
+                      "w-7 h-7 rounded-md text-[11px] font-black transition-all",
+                      currentPage === pageNum 
+                        ? "bg-slate-900 text-white shadow-sm" 
+                        : "text-slate-400 hover:bg-slate-100"
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={goToNext}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg border border-slate-100 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

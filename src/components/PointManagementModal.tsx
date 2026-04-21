@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, CheckCircle2, Search } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { User, POINT_CATEGORIES, HOUSES } from '../types';
@@ -15,12 +15,19 @@ interface PointManagementModalProps {
 export default function PointManagementModal({ isOpen, onClose }: PointManagementModalProps) {
   const { user, isOfflineMode } = useAuth();
   const [students, setStudents] = useState<User[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
   const [points, setPoints] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && !isOfflineMode) {
@@ -36,6 +43,13 @@ export default function PointManagementModal({ isOpen, onClose }: PointManagemen
       fetchStudents();
     }
   }, [isOpen, isOfflineMode]);
+
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => 
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.houseId?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [students, searchQuery]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +85,7 @@ export default function PointManagementModal({ isOpen, onClose }: PointManagemen
       setTimeout(() => {
         setSuccess(false);
         onClose();
+        setSearchQuery('');
         setSelectedStudentId('');
         setSelectedReason('');
         setPoints(1);
@@ -128,22 +143,52 @@ export default function PointManagementModal({ isOpen, onClose }: PointManagemen
                   <div className="space-y-6">
                     {/* Student Selection */}
                     <div className="space-y-4">
-                      <label className="text-[16px] font-bold text-slate-900">Student</label>
-                      <div className="relative">
-                        <select
-                          value={selectedStudentId}
-                          onChange={(e) => setSelectedStudentId(e.target.value)}
-                          className="w-full h-[56px] bg-white border border-slate-200 rounded-full px-6 text-[16px] font-medium text-slate-600 appearance-none focus:ring-2 focus:ring-slate-900 focus:outline-none transition-all"
-                        >
-                          <option value="">Select a student</option>
-                          {students.map(s => (
-                            <option key={s.uid} value={s.uid}>{s.name} ({s.houseId})</option>
-                          ))}
-                        </select>
-                        <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[16px] font-bold text-slate-900">Student</label>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'} found
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {/* Search Input */}
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Search student by name or house..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full h-[48px] bg-slate-50 border border-slate-200 rounded-full px-10 text-[14px] font-medium text-slate-600 focus:ring-2 focus:ring-slate-900 focus:outline-none focus:bg-white transition-all"
+                          />
+                          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                          {searchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery('')}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Select Dropdown */}
+                        <div className="relative">
+                          <select
+                            value={selectedStudentId}
+                            onChange={(e) => setSelectedStudentId(e.target.value)}
+                            className="w-full h-[56px] bg-white border border-slate-200 rounded-full px-6 text-[16px] font-medium text-slate-600 appearance-none focus:ring-2 focus:ring-slate-900 focus:outline-none transition-all"
+                          >
+                            <option value="">Select a student</option>
+                            {filteredStudents.map(s => (
+                              <option key={s.uid} value={s.uid}>{s.name} ({s.houseId})</option>
+                            ))}
+                          </select>
+                          <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          </div>
                         </div>
                       </div>
                     </div>
