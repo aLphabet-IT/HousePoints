@@ -72,7 +72,7 @@ export default function LiveDisplay() {
         <div className="flex flex-col items-center gap-6">
           <div className="w-16 h-16 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin" />
           <div className="text-center">
-            <h1 className="text-[20px] font-black text-slate-900 leading-none mb-2">Alphabet House System</h1>
+            <h1 className="text-[20px] font-black text-slate-900 leading-none mb-2">aLphabet House System</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Establishing Secure Sync...</p>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function LiveDisplay() {
                <Shield className="w-7 h-7" />
              </div>
              <div>
-               <h1 className="text-[24px] font-black text-slate-900 leading-none">Alphabet</h1>
+               <h1 className="text-[24px] font-black text-slate-900 leading-none">aLphabet</h1>
                <p className="text-[12px] font-black text-slate-400 tracking-[0.2em] uppercase">International School</p>
              </div>
           </div>
@@ -113,8 +113,8 @@ export default function LiveDisplay() {
 
       {/* Main Title Section */}
       <div className="text-center py-4 relative z-10 shrink-0">
-        <h2 className="text-[48px] font-black text-[#5a7395] tracking-tighter uppercase leading-none mb-1">
-          Alphabet's House Cup 2026
+        <h2 className="text-[48px] font-black text-[#5a7395] tracking-tighter leading-none mb-1">
+          aLphabet's House Cup 2026
         </h2>
         <div className="flex items-center justify-center gap-4">
            <div className="h-[2px] w-20 bg-slate-100" />

@@ -86,7 +86,7 @@ export default function AdminDashboard() {
                 <Shield className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-[20px] font-black text-slate-900 leading-none">Alphabet</h1>
+                <h1 className="text-[20px] font-black text-slate-900 leading-none">aLphabet</h1>
                 <p className="text-[10px] font-bold text-slate-400 tracking-wider">International School</p>
               </div>
            </div>

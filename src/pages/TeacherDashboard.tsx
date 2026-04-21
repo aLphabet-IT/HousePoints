@@ -50,10 +50,10 @@ export default function TeacherDashboard() {
       <header className="h-16 bg-surface border-b border-border-theme flex items-center justify-between px-6 shrink-0 z-20">
         <div className="flex items-center gap-3">
           <div className="logo-icon w-8 h-8 bg-slate-grey rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm">
-            MH
+            AL
           </div>
           <div className="logo text-[20px] font-black tracking-tight text-slate-dark flex items-center gap-2">
-            MyHouse
+            aLphabet
             <span className="font-medium text-[14px] text-text-muted opacity-60">Teacher Portal</span>
           </div>
         </div>
