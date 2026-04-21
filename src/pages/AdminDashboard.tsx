@@ -23,7 +23,6 @@ import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 
 import UserManager from '../components/UserManager';
-import InstitutionalOverview from '../components/InstitutionalOverview';
 import PointManagementModal from '../components/PointManagementModal';
 
 export default function AdminDashboard() {
@@ -31,7 +30,7 @@ export default function AdminDashboard() {
   const { houses } = useHouses();
   const { logs } = useLogs(30);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'dashboard' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users'>('dashboard');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isPointModalOpen, setIsPointModalOpen] = useState(false);
@@ -55,7 +54,6 @@ export default function AdminDashboard() {
     {
       label: 'OPERATIONS',
       items: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'dashboard', label: 'House Points', icon: TrendingUp },
       ]
     },
@@ -176,8 +174,6 @@ export default function AdminDashboard() {
         {/* Dynamic Content Body */}
         <div className="flex-1 overflow-hidden relative">
           <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
-            {activeTab === 'overview' && <InstitutionalOverview />}
-            
             {activeTab === 'dashboard' && (
               <div className="p-10 space-y-10">
                  <div className="flex items-end justify-between">
