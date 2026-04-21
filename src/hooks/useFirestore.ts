@@ -12,8 +12,17 @@ export function useHouses() {
     return onSnapshot(q, (snapshot) => {
       const housesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as House));
       
-      // Only attempt initialization if houses are truly empty and user is logged in
-      if (housesData.length === 0 && houses.length === 0 && auth.currentUser) {
+      // Explicitly sort local data by points DESC to guarantee rank accuracy
+      const sortedByPoints = [...housesData].sort((a, b) => b.totalPoints - a.totalPoints);
+
+      // Calculate dynamic rank based on sorted points
+      const rankedHouses = sortedByPoints.map((house, index) => ({
+        ...house,
+        rank: index + 1
+      }));
+      
+      // Only attempt initialization if houses are truly empty
+      if (rankedHouses.length === 0 && houses.length === 0 && auth.currentUser) {
         HOUSES.forEach(async (h, index) => {
           try {
             await setDoc(doc(db, 'houses', h.id), {
@@ -29,7 +38,7 @@ export function useHouses() {
         });
       }
 
-      setHouses(housesData);
+      setHouses(rankedHouses);
       setLoading(false);
     }, (error) => {
       console.error("Firestore error in useHouses:", error);

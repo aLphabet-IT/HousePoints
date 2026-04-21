@@ -6,6 +6,7 @@ import HouseCard from '../components/HouseCard';
 import Leaderboard from '../components/Leaderboard';
 import ActivityFeed from '../components/ActivityFeed';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Shield,
   Plus, 
@@ -26,6 +27,7 @@ import UserManager from '../components/UserManager';
 import PointManagementModal from '../components/PointManagementModal';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { houses } = useHouses();
   const { logs } = useLogs(30);
@@ -61,7 +63,7 @@ export default function AdminDashboard() {
       label: 'INSTITUTIONAL RESEARCH',
       items: [
         { id: 'users', label: 'Students & Staff', icon: Users },
-        { id: 'live', label: 'Live Display', icon: Tv, action: () => window.location.assign('/live') },
+        { id: 'live', label: 'Live Display', icon: Tv, action: () => navigate('/live') },
       ]
     }
   ];

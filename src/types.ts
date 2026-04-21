@@ -34,10 +34,10 @@ export interface PointLog {
 }
 
 export const HOUSES = [
-  { id: 'phoenix', name: 'Phoenix', color: 'bg-red-500', textColor: 'text-red-500' },
-  { id: 'pegasus', name: 'Pegasus', color: 'bg-blue-500', textColor: 'text-blue-500' },
-  { id: 'centaur', name: 'Centaur', color: 'bg-green-500', textColor: 'text-green-500' },
-  { id: 'sphinx', name: 'Sphinx', color: 'bg-purple-500', textColor: 'text-purple-500' },
+  { id: 'phoenix', name: 'Phoenix', color: 'bg-phoenix', textColor: 'text-phoenix' },
+  { id: 'pegasus', name: 'Pegasus', color: 'bg-pegasus', textColor: 'text-pegasus' },
+  { id: 'centaur', name: 'Centaur', color: 'bg-centaur', textColor: 'text-centaur' },
+  { id: 'sphinx', name: 'Sphinx', color: 'bg-sphinx', textColor: 'text-sphinx' },
 ];
 
 export const POINT_CATEGORIES: { id: PointCategory; label: string }[] = [

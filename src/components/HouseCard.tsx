@@ -39,7 +39,7 @@ const HouseCard: React.FC<HouseCardProps> = ({ house, isCompact = false }) => {
             {house.totalPoints.toLocaleString()}
           </div>
         </div>
-        <div className={cn("text-[12px] font-semibold px-2 py-0.5 rounded-md bg-opacity-10", houseConfig?.color, houseConfig?.textColor)}>
+        <div className={cn("text-[12px] font-extrabold px-3 py-1 rounded-md text-white shadow-sm", houseConfig?.color)}>
           Rank #{house.rank}
         </div>
       </div>

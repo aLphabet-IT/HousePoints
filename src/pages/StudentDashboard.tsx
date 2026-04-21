@@ -5,10 +5,12 @@ import { HOUSES } from '../types';
 import Leaderboard from '../components/Leaderboard';
 import ActivityFeed from '../components/ActivityFeed';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, LogOut, Trophy, Quote, TrendingUp, Shield, History } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { houses } = useHouses();
   const { logs } = useLogs(20);
@@ -42,15 +44,21 @@ export default function StudentDashboard() {
 
       <div className="flex flex-1 overflow-hidden">
         <nav className="w-[220px] bg-surface border-r border-border-theme p-5 flex flex-col gap-1 shrink-0">
-           <a href="#" className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-semibold bg-slate-50 text-slate-dark"><UserIcon className="w-4 h-4" /> My Progress</a>
-           <a 
-              href="/points" 
-              className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors"
+           <button className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-semibold bg-slate-50 text-slate-dark text-left">
+             <UserIcon className="w-4 h-4" /> My Progress
+           </button>
+           <button 
+              onClick={() => navigate('/points')} 
+              className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors text-left"
             >
               <Shield className="w-4 h-4" /> House Points Hub
-            </a>
-           <a href="#" className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors"><Trophy className="w-4 h-4" /> Leaderboard</a>
-           <a href="#" className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors"><History className="w-4 h-4" /> My History</a>
+            </button>
+           <button className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors text-left">
+             <Trophy className="w-4 h-4" /> Leaderboard
+           </button>
+           <button className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors text-left">
+             <History className="w-4 h-4" /> My History
+           </button>
         </nav>
 
         <div className="flex-1 p-5 overflow-y-auto custom-scrollbar">

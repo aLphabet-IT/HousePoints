@@ -6,9 +6,11 @@ import HouseCard from '../components/HouseCard';
 import Leaderboard from '../components/Leaderboard';
 import ActivityFeed from '../components/ActivityFeed';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { Sparkles, Plus, LogOut, Info, BarChart3, Shield } from 'lucide-react';
 
 export default function TeacherDashboard() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { houses } = useHouses();
   const { logs } = useLogs(20);
@@ -65,7 +67,7 @@ export default function TeacherDashboard() {
                 <LogOut className="w-4 h-4" />
              </button>
            </div>
-           <button onClick={() => window.location.assign('/live')} className="btn-outline px-4 py-1.5 h-auto">View Rankings</button>
+           <button onClick={() => navigate('/live')} className="btn-outline px-4 py-1.5 h-auto">View Rankings</button>
         </div>
       </header>
 
@@ -83,7 +85,7 @@ export default function TeacherDashboard() {
            </button>
            <div className="my-2 border-t border-border-theme opacity-30"></div>
            <button 
-             onClick={() => window.open('/points', '_blank')} 
+             onClick={() => navigate('/points')} 
              className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-text-muted hover:bg-slate-50 transition-colors text-left"
            >
              <Shield className="w-4 h-4" /> House Points Hub
