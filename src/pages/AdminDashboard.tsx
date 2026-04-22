@@ -143,12 +143,6 @@ export default function AdminDashboard() {
               </div>
               
               <div className="flex items-center gap-3">
-                 <div className={cn(
-                   "text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full",
-                   dbStatus === 'connected' ? "bg-emerald-50 text-emerald-600 border border-emerald-100/50" : "bg-red-50 text-red-500 border border-red-100/50"
-                 )}>
-                   {dbStatus === 'connected' ? 'Core Sync Active' : 'Offline'}
-                 </div>
                  <div className="flex items-center gap-2 pl-4 border-l border-slate-100 ml-2">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-[12px]">
                       {user?.name?.substring(0,2).toUpperCase() || 'AD'}

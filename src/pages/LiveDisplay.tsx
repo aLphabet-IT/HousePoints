@@ -150,7 +150,10 @@ export default function LiveDisplay() {
                 className={cn(
                   "relative bg-white border p-6 rounded-[32px] flex flex-col items-center justify-center min-h-[190px] transition-all duration-700",
                   isRank1 
-                    ? "border-[#facc15] shadow-[0_30px_60px_-15px_rgba(250,204,21,0.25)] ring-4 ring-[#facc15]/5 z-10" 
+                    ? (house.id === 'phoenix' ? "border-red-500 shadow-[0_30px_60px_-15px_rgba(239,68,68,0.25)] ring-4 ring-red-500/5 z-10" :
+                       house.id === 'pegasus' ? "border-blue-500 shadow-[0_30px_60px_-15px_rgba(59,130,246,0.25)] ring-4 ring-blue-500/5 z-10" :
+                       house.id === 'sphinx' ? "border-amber-400 shadow-[0_30px_60px_-15px_rgba(251,191,36,0.25)] ring-4 ring-amber-400/5 z-10" :
+                       "border-emerald-500 shadow-[0_30px_60px_-15px_rgba(16,185,129,0.25)] ring-4 ring-emerald-500/5 z-10")
                     : "border-slate-100 shadow-lg shadow-slate-100/40"
                 )}
               >
@@ -158,7 +161,13 @@ export default function LiveDisplay() {
                   <motion.div 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-3 -right-3 w-10 h-10 bg-[#facc15] rounded-full flex items-center justify-center text-white shadow-lg z-20"
+                    className={cn(
+                      "absolute -top-3 -right-3 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg z-20",
+                      house.id === 'phoenix' ? "bg-red-500" :
+                      house.id === 'pegasus' ? "bg-blue-500" :
+                      house.id === 'sphinx' ? "bg-amber-400" :
+                      "bg-emerald-500"
+                    )}
                   >
                     <Trophy className="w-5 h-5" />
                   </motion.div>
@@ -166,8 +175,16 @@ export default function LiveDisplay() {
 
                 <div className="flex items-center gap-3 mb-4">
                    <div className={cn(
-                     "w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-black shadow-inner",
-                     isRank1 ? "bg-[#facc15] text-white" : "bg-slate-100 text-slate-400"
+                     "w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-black shadow-inner transition-colors",
+                     isRank1 
+                        ? (house.id === 'phoenix' ? "bg-red-500 text-white" :
+                           house.id === 'pegasus' ? "bg-blue-500 text-white" :
+                           house.id === 'sphinx' ? "bg-amber-400 text-white" :
+                           "bg-emerald-500 text-white")
+                        : (house.id === 'phoenix' ? "bg-red-50 text-red-500" :
+                           house.id === 'pegasus' ? "bg-blue-50 text-blue-500" :
+                           house.id === 'sphinx' ? "bg-amber-50 text-amber-500" :
+                           "bg-emerald-50 text-emerald-500")
                    )}>
                      {index + 1}
                    </div>
@@ -187,7 +204,7 @@ export default function LiveDisplay() {
                         className={cn("h-full rounded-full transition-all duration-1000", 
                           house.id === 'phoenix' ? "bg-[#ef4444]" :
                           house.id === 'pegasus' ? "bg-[#3b82f6]" :
-                          house.id === 'sphinx' ? "bg-[#8b5cf6]" :
+                          house.id === 'sphinx' ? "bg-[#F59D0B]" :
                           "bg-[#10b981]"
                         )}
                         initial={{ width: 0 }}
