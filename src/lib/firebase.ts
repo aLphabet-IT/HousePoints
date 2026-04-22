@@ -1,26 +1,43 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Use initializeFirestore with long-polling to bypass potential GRPC issues in some environments
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)' 
+  ? firebaseConfig.firestoreDatabaseId 
+  : undefined);
 
 /**
- * Validates connection to Firestore. Throws error if offline.
+ * Validates connection to Firestore.
  */
 async function testConnection() {
   try {
+    // Attempt a read to see if we can reach the backend
     await getDocFromServer(doc(db, 'system', 'connection-test'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Firebase is offline. Check your configuration.");
+    console.log("Firestore connection verified.");
+  } catch (error: any) {
+    if (error.code === 'permission-denied') {
+      console.log("Firestore connection check: Reachable (Permission Denied as expected).");
+      return;
+    }
+    
+    // Check if truly offline or just a timeout
+    if (error.message?.includes('offline') || error.message?.includes('timeout') || error.message?.includes('Backend didn\'t respond')) {
+      console.error("CRITICAL: Firestore is unreachable. verify your Firebase settings and project state.");
+    } else {
+      console.error("Firestore connectivity check failed:", error.message || error);
     }
   }
 }
 
-testConnection();
+// Run connectivity check after a short delay to allow background initialization
+setTimeout(testConnection, 1000);
 
 export interface FirestoreErrorInfo {
   error: string;

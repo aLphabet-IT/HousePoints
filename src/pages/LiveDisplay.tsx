@@ -83,17 +83,13 @@ export default function LiveDisplay() {
   return (
     <div className="min-h-screen w-full bg-[#fdfdfd] flex flex-col font-sans overflow-x-hidden select-none">
       {/* Top Header */}
-      <header className="h-[80px] px-12 flex items-center justify-between pointer-events-auto shrink-0 relative z-20">
+      <header className="h-[90px] px-12 flex items-center justify-between pointer-events-auto shrink-0 relative z-20">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-             <div className="w-12 h-12 bg-slate-900 rounded-[20px] flex items-center justify-center text-white shadow-xl shadow-slate-200">
-               <Shield className="w-7 h-7" />
-             </div>
-             <div>
-               <h1 className="text-[24px] font-black text-slate-900 leading-none">aLphabet</h1>
-               <p className="text-[12px] font-black text-slate-400 tracking-[0.2em] uppercase">International School</p>
-             </div>
-          </div>
+          <img 
+            src="https://myalphabet.school/images/logo/aLphabet%20logo%20Light%20mode.png" 
+            alt="aLphabet Logo" 
+            className="h-16 w-auto"
+          />
         </div>
 
         <div className="flex items-center gap-6">

@@ -50,7 +50,11 @@ export default function HousePointsPage() {
             <ArrowLeft className="w-5 h-5 text-slate-400" />
           </button>
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-950 font-black shadow-[0_0_20px_rgba(255,255,255,0.3)]">MH</div>
+             <img 
+               src="https://myalphabet.school/images/logo/aLphabet%20logo%20Light%20mode.png" 
+               alt="aLphabet Logo" 
+               className="h-10 w-auto brightness-0 invert"
+             />
              <h1 className="text-xl font-black tracking-tighter">House Point Hub</h1>
           </div>
         </div>

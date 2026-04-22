@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield, Sparkles, User, Tv, Mail, Lock } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 
 export default function LoginPage() {
   const { user, loading, loginWithEmail } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const [authMethod, setAuthMethod] = useState<'google' | 'email'>('email');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Email Login state
   const [email, setEmail] = useState('');
@@ -57,142 +57,121 @@ export default function LoginPage() {
   };
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-bg">
+    <div className="h-screen flex items-center justify-center bg-[#F8FAFC]">
       <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="h-screen bg-bg flex items-center justify-center p-6 overflow-hidden relative font-sans">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
-         <div className="absolute -top-24 -left-24 w-96 h-96 bg-phoenix rounded-full blur-[100px]" />
-         <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-pegasus rounded-full blur-[100px]" />
-      </div>
-
-      <div className="max-w-md w-full relative z-10">
+    <div className="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-6 font-sans">
+      <div className="max-w-[440px] w-full">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="card p-10 text-center shadow-2xl relative overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-[32px] shadow-[0_30px_80px_rgba(0,0,0,0.06)] border border-white py-6 px-10 flex flex-col items-center"
         >
-          {/* Animated accent bar */}
-          <motion.div 
-            animate={{ x: [-100, 400] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute top-0 left-0 w-24 h-1 bg-gradient-to-r from-transparent via-slate-400 to-transparent"
+          {/* Logo */}
+          <img 
+            src="https://myalphabet.school/images/logo/aLphabet%20logo%20Light%20mode.png" 
+            alt="aLphabet Logo" 
+            className="h-12 mb-4"
           />
 
-          <div className="w-16 h-16 bg-slate-dark text-white rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 shadow-lg">
-            MH
-          </div>
-          <h1 className="text-3xl font-black text-slate-dark tracking-tighter">MyHouse</h1>
-          <p className="text-text-muted font-medium mt-2">Enterprise House Point Management</p>
+          <h1 className="text-[21px] font-bold text-[#1E293B] mb-0.5">Welcome back</h1>
+          <p className="text-[#64748B] text-[12px] font-medium mb-4 text-center leading-relaxed">Sign in to access your dashboard</p>
 
-          <div className="mt-8">
-            <div className="flex bg-slate-50 p-1 rounded-xl mb-6 relative z-10">
-               <button 
-                 onClick={() => setAuthMethod('email')}
-                 className={cn(
-                   "flex-1 py-2 text-[12px] font-bold rounded-lg transition-all",
-                   authMethod === 'email' ? "bg-white shadow-sm text-slate-900" : "text-slate-400 hover:text-slate-600"
-                 )}
-               >
-                 Institutional Login
-               </button>
-               <button 
-                 onClick={() => setAuthMethod('google')}
-                 className={cn(
-                   "flex-1 py-2 text-[12px] font-bold rounded-lg transition-all",
-                   authMethod === 'google' ? "bg-white shadow-sm text-slate-900" : "text-slate-400 hover:text-slate-600"
-                 )}
-               >
-                 Google Workspace
-               </button>
+          <form onSubmit={handleEmailLogin} className="w-full space-y-3">
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-[#1E293B] ml-1">Email</label>
+              <div className="relative">
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@alphabet.school"
+                  required
+                  className="w-full bg-[#F3F8FF] border border-transparent p-2.5 pl-11 rounded-xl text-[13px] font-medium text-[#1E293B] placeholder-[#94A3B8] focus:bg-white focus:border-[#CBD5E1] focus:outline-none transition-all shadow-sm"
+                />
+                <Mail className="w-3.5 h-3.5 absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+              </div>
             </div>
 
-            {authMethod === 'email' ? (
-              <form onSubmit={handleEmailLogin} className="space-y-4 text-left relative z-10">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail Account / Institutional Email</label>
-                  <div className="relative">
-                    <input 
-                      type="email" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@school.com"
-                      required
-                      className="w-full bg-white border border-slate-200 p-3 pl-10 rounded-xl text-[14px] font-medium focus:ring-2 focus:ring-slate-900/5 focus:border-slate-400 focus:outline-none transition-all"
-                    />
-                    <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Password</label>
-                  <div className="relative">
-                    <input 
-                      type="password" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      className="w-full bg-white border border-slate-200 p-3 pl-10 rounded-xl text-[14px] font-medium focus:ring-2 focus:ring-slate-900/5 focus:border-slate-400 focus:outline-none transition-all"
-                    />
-                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" />
-                  </div>
-                </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-[#1E293B] ml-1">Password</label>
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full bg-[#F3F8FF] border border-transparent p-2.5 pl-11 pr-10 rounded-xl text-[13px] font-medium text-[#1E293B] placeholder-[#94A3B8] focus:bg-white focus:border-[#CBD5E1] focus:outline-none transition-all shadow-sm"
+                />
+                <Lock className="w-3.5 h-3.5 absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                 <button 
-                  type="submit"
-                  disabled={isAuthenticating || !email || !password}
-                  className="btn-slate w-full py-3.5 text-[14px] font-black flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-all mt-6"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#64748B] transition-colors"
                 >
-                  {isAuthenticating ? 'Authenticating...' : 'Sign In to Portal'}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
-              </form>
-            ) : (
-              <div className="space-y-3 relative z-10">
-                <button 
-                  onClick={handleGoogleLogin}
-                  disabled={isAuthenticating}
-                  className="btn-outline w-full py-3.5 text-[14px] flex items-center justify-center gap-3 shadow-sm active:scale-95 transition-all bg-white"
-                >
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-                  Continue with Google
-                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 ml-1">
+              <input 
+                type="checkbox" 
+                id="remember" 
+                className="w-3.5 h-3.5 rounded border-[#CBD5E1] text-[#5D7290] focus:ring-[#5D7290]"
+              />
+              <label htmlFor="remember" className="text-[12px] font-medium text-[#64748B] cursor-pointer">Remember me</label>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 p-2 rounded-xl border border-red-100">
+                <p className="text-red-500 text-[11px] font-medium text-center">{error}</p>
               </div>
             )}
 
             <button 
-              onClick={() => navigate('/live')}
-              className="w-full py-3 text-[12px] font-bold text-slate-400 hover:text-slate-600 transition-colors mt-2"
+              type="submit"
+              disabled={isAuthenticating || !email || !password}
+              className="w-full bg-[#5D7290] hover:bg-[#4E617A] text-white py-2.5 rounded-xl text-[14px] font-bold shadow-lg shadow-slate-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100 mt-1"
             >
-              Public Live Display
+              {isAuthenticating ? 'Signing In...' : 'Sign In'}
             </button>
+          </form>
+
+          <div className="w-full flex items-center gap-3 my-4">
+            <div className="flex-1 h-[1px] bg-[#E2E8F0]" />
+            <span className="text-[9px] font-bold text-[#94A3B8] uppercase tracking-[0.2em]">OR</span>
+            <div className="flex-1 h-[1px] bg-[#E2E8F0]" />
           </div>
 
-          {/* Animated Background Pulse */}
-          <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-[0.03]">
-             <motion.div 
-               animate={{ scale: [1, 1.2, 1], opacity: [1, 0.5, 1] }}
-               transition={{ duration: 8, repeat: Infinity }}
-               className="w-full h-full bg-slate-900 border-8 border-slate-900 rounded-full"
-             />
-          </div>
+          <button 
+            onClick={handleGoogleLogin}
+            disabled={isAuthenticating}
+            className="w-full bg-white border border-[#E2E8F0] py-2.5 rounded-xl flex items-center justify-center gap-2.5 hover:bg-slate-50 transition-all group shadow-sm active:scale-[0.98]"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4.5 h-4.5" alt="Google" />
+            <span className="text-[14px] font-semibold text-[#1E293B]">Continue with Google</span>
+          </button>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl text-left">
-              <p className="text-red-600 text-[11px] font-bold uppercase flex items-center gap-2">
-                <Shield className="w-3 h-3" /> Error Detected
-              </p>
-              <p className="text-red-500 text-[12px] mt-1 leading-relaxed">
-                {error}
-              </p>
+          <div className="mt-5 pt-4 border-t border-slate-100 w-full flex flex-col items-center gap-3">
+            <button 
+              onClick={() => navigate('/live')}
+              className="px-5 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-[11px] font-black text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2 group"
+            >
+              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full group-hover:animate-ping" />
+              View Live Cup Preview
+            </button>
+            
+            <div className="text-center space-y-0.5">
+              <p className="text-[9px] font-medium text-[#94A3B8]">© 2025 aLphabet internationaL schooL.</p>
+              <p className="text-[9px] font-medium text-[#94A3B8]">Crafted with care - aLphabet IT Dept</p>
             </div>
-          )}
+          </div>
         </motion.div>
-
-        <p className="text-center text-[11px] text-text-muted mt-8 font-medium uppercase tracking-[0.2em] opacity-40">
-           AIS House System • Secure Cloud Sync
-        </p>
       </div>
     </div>
   );

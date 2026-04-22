@@ -270,27 +270,39 @@ export default function UserManager() {
         secondaryApp = initializeApp({ ...firebaseConfig }, secondaryAppName);
         const secondaryAuth = getAuth(secondaryApp);
         
-        // Ensure this auth doesn't disrupt main session
-        await setPersistence(secondaryAuth, inMemoryPersistence);
-        
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password.trim());
-        const authUser = userCredential.user;
-        await signOut(secondaryAuth);
+      // Ensure this auth doesn't disrupt main session
+      console.log("Setting persistence for secondary app...");
+      await setPersistence(secondaryAuth, inMemoryPersistence);
+      
+      console.log("Creating auth user...");
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password.trim());
+      const authUser = userCredential.user;
+      
+      console.log("Saving student profile to Firestore...");
+      const newUser: User = {
+        uid: authUser.uid,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: validatedRole,
+      };
 
-        const newUser: User = {
-          uid: authUser.uid,
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          role: validatedRole,
-        };
+      if (validatedRole === 'student') {
+        newUser.houseId = (houseid || 'phoenix').toLowerCase().trim();
+        newUser.points = 0;
+      }
 
-        if (validatedRole === 'student') {
-          newUser.houseId = (houseid || 'phoenix').toLowerCase().trim();
-          newUser.points = 0;
-        }
-
+      try {
         await setDoc(doc(db, 'users', authUser.uid), newUser);
         successCount++;
+        console.log(`Successfully added student: ${email}`);
+      } catch (firestoreErr: any) {
+        console.error(`Firestore write failed for ${email}:`, firestoreErr);
+        errors.push(`Row ${i + 1} (${email}): Firestore sync failed. ${firestoreErr.message || firestoreErr.code}`);
+        // Attempt cleanup if auth was created but db sync failed
+        try { await authUser.delete(); } catch(e) {}
+      }
+      
+      await signOut(secondaryAuth);
       } catch (err: any) {
         console.error(`Bulk Error at Row ${i+1}:`, err);
         errors.push(`Row ${i + 1} (${email}): ${err.code || err.message}`);

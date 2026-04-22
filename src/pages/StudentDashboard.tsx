@@ -21,13 +21,12 @@ export default function StudentDashboard() {
     <div className="h-screen flex flex-col bg-bg overflow-hidden font-sans">
       <header className="h-16 bg-surface border-b border-border-theme flex items-center justify-between px-6 shrink-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="logo-icon w-8 h-8 bg-slate-grey rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm">
-            AL
-          </div>
-          <div className="logo text-[20px] font-black tracking-tight text-slate-dark flex items-center gap-2">
-            aLphabet
-            <span className="font-medium text-[14px] text-text-muted opacity-60">Student Portal</span>
-          </div>
+          <img 
+            src="https://myalphabet.school/images/logo/aLphabet%20logo%20Light%20mode.png" 
+            alt="aLphabet Logo" 
+            className="h-10 w-auto"
+          />
+          <span className="font-bold text-[13px] text-text-muted opacity-40 uppercase tracking-widest ml-1 hidden sm:block">Student Portal</span>
         </div>
         <div className="flex items-center gap-4">
            <div className="flex items-center gap-3">

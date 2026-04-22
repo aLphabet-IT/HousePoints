@@ -82,13 +82,11 @@ export default function AdminDashboard() {
         <div className="w-[280px]"> {/* Fixed width container to prevent content squashing during transition */}
           <div className="p-8 mb-4">
            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-[20px] font-black text-slate-900 leading-none">aLphabet</h1>
-                <p className="text-[10px] font-bold text-slate-400 tracking-wider">International School</p>
-              </div>
+              <img 
+                src="https://myalphabet.school/images/logo/aLphabet%20logo%20Light%20mode.png" 
+                alt="aLphabet Logo" 
+                className="h-10 w-auto"
+              />
            </div>
         </div>
 

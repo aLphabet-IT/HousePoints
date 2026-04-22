@@ -97,15 +97,19 @@ export function useNeedsBoostStudents(studentsLimit = 10) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Ordering by points ASC for 'Needs a Boost'
+    // We remove the 'where' clause here to avoid requiring a composite index.
+    // Instead, we sort by points and filter the role client-side.
     const q = query(
       collection(db, 'users'), 
-      where('role', '==', 'student'),
       orderBy('points', 'asc'), 
-      limit(studentsLimit)
+      limit(studentsLimit * 2) // Fetch more to account for non-student roles in the sort
     );
     return onSnapshot(q, (snapshot) => {
-      const studentsData = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
+      const studentsData = snapshot.docs
+        .map(doc => ({ ...doc.data(), uid: doc.id } as User))
+        .filter(u => u.role === 'student')
+        .slice(0, studentsLimit);
+        
       setStudents(studentsData);
       setLoading(false);
     }, (error) => {
