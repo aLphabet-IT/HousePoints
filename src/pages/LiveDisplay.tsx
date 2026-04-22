@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useHouses, useLogs, useStudents, useNeedsBoostStudents } from '../hooks/useFirestore';
 import { HOUSES } from '../types';
 import { motion, AnimatePresence, animate } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Trophy, Maximize, Shield, Star, Zap, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'dotlottie-wc': any;
+    }
+  }
+}
 
 // Custom Animated Number Component for a "rolling" effect
 function AnimatedNumber({ value }: { value: number }) {
@@ -34,10 +42,17 @@ function getPastelColor(str: string) {
 
 export default function LiveDisplay() {
   const { houses, loading: housesLoading } = useHouses();
-  const { logs, loading: logsLoading } = useLogs(15); 
-  const { students: topStudents, loading: topLoading } = useStudents(5); 
-  const { students: lowStudents, loading: lowLoading } = useNeedsBoostStudents(5); 
+  const { logs, loading: logsLoading } = useLogs(30); 
+  const { students: topStudents, loading: topLoading } = useStudents(30); 
+  const { students: lowStudents, loading: lowLoading } = useNeedsBoostStudents(30); 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Pagination states
+  const [topPage, setTopPage] = useState(0);
+  const [logsPage, setLogsPage] = useState(0);
+  const [lowPage, setLowPage] = useState(0);
+  const ITEMS_PER_PAGE = 6;
 
   // Use real data as priority
   const displayTopStudents = topLoading ? [] : topStudents;
@@ -56,13 +71,40 @@ export default function LiveDisplay() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
+  const toggleFullscreen = async () => {
+    try {
+      const container = containerRef.current;
+      if (!container) return;
+
+      if (!document.fullscreenElement) {
+        // Support for standard and vendor-prefixed methods
+        const requestMethod = 
+          container.requestFullscreen || 
+          (container as any).webkitRequestFullscreen || 
+          (container as any).mozRequestFullScreen || 
+          (container as any).msRequestFullscreen;
+
+        if (requestMethod) {
+          await requestMethod.call(container);
+        } else {
+          // Fallback to direct URL if blocked by iframe
+          window.open(window.location.href, '_blank');
+        }
+      } else {
+        const exitMethod = 
+          document.exitFullscreen || 
+          (document as any).webkitExitFullscreen || 
+          (document as any).mozCancelFullScreen || 
+          (document as any).msExitFullscreen;
+
+        if (exitMethod) {
+          await exitMethod.call(document);
+        }
+      }
+    } catch (err) {
+      console.error("Fullscreen toggle failed:", err);
+      // If it fails (common in iframes), suggest opening in new tab
+      alert("Note: Fullscreen might be blocked by browser security inside this frame. Try opening the app in a new tab for full broadcast mode.");
     }
   };
 
@@ -81,14 +123,14 @@ export default function LiveDisplay() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#fdfdfd] flex flex-col font-sans overflow-x-hidden select-none">
+    <div ref={containerRef} className="h-screen w-full bg-[#fdfdfd] flex flex-col font-sans overflow-hidden select-none">
       {/* Top Header */}
       <header className="h-[90px] px-12 flex items-center justify-between pointer-events-auto shrink-0 relative z-20">
         <div className="flex items-center gap-4">
           <img 
             src="https://myalphabet.school/images/logo/aLphabet%20logo%20Light%20mode.png" 
             alt="aLphabet Logo" 
-            className="h-16 w-auto"
+            className="h-12 w-auto"
           />
         </div>
 
@@ -112,11 +154,6 @@ export default function LiveDisplay() {
         <h2 className="text-[48px] font-black text-[#5a7395] tracking-tighter leading-none mb-1">
           aLphabet's House Cup 2026
         </h2>
-        <div className="flex items-center justify-center gap-4">
-           <div className="h-[2px] w-20 bg-slate-100" />
-           <p className="text-[12px] font-black text-slate-300 uppercase tracking-[0.4em]">Real-Time Institutional Metrics</p>
-           <div className="h-[2px] w-20 bg-slate-100" />
-        </div>
       </div>
 
       {/* House Leaderboard Row */}
@@ -162,14 +199,19 @@ export default function LiveDisplay() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     className={cn(
-                      "absolute -top-3 -right-3 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg z-20",
-                      house.id === 'phoenix' ? "bg-red-500" :
-                      house.id === 'pegasus' ? "bg-blue-500" :
-                      house.id === 'sphinx' ? "bg-amber-400" :
-                      "bg-emerald-500"
+                      "absolute -top-6 -right-6 w-20 h-20 rounded-full flex items-center justify-center z-20",
+                      house.id === 'phoenix' ? "text-red-500" :
+                      house.id === 'pegasus' ? "text-blue-500" :
+                      house.id === 'sphinx' ? "text-amber-400" :
+                      "text-emerald-500"
                     )}
                   >
-                    <Trophy className="w-5 h-5" />
+                    <dotlottie-wc 
+                      src="https://lottie.host/7db9475b-0625-4088-810a-871dd07f6dad/HHKsC52X5R.lottie" 
+                      style={{ width: '100%', height: '100%' }} 
+                      autoplay 
+                      loop 
+                    />
                   </motion.div>
                 )}
 
@@ -222,139 +264,218 @@ export default function LiveDisplay() {
       <div className="flex-1 px-12 py-8 grid grid-cols-3 gap-8 bg-slate-50/40 relative z-10 border-t border-slate-100/50">
         
         {/* Hall of Fame */}
-        <div className="bg-white border border-[#f1fcf4] rounded-[32px] p-8 shadow-2xl shadow-emerald-900/5">
-           <div className="flex items-center gap-4 mb-8">
-              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500 text-emerald-500">
-                <Star className="w-5 h-5" fill="currentColor" />
+        <div className="bg-white border border-[#f1fcf4] rounded-[32px] p-8 shadow-2xl shadow-emerald-900/5 flex flex-col">
+           <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
+                  <Star className="w-5 h-5" fill="currentColor" />
+                </div>
+                <div>
+                  <h4 className="text-[18px] font-black text-slate-900 leading-none">Hall of Fame</h4>
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-0.5">Top Performers</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-[18px] font-black text-slate-900 leading-none">Hall of Fame</h4>
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-0.5">Global Top Performers</p>
+              
+              {/* Pagination Controls */}
+              <div className="flex items-center gap-1">
+                <button 
+                  disabled={topPage === 0}
+                  onClick={() => setTopPage(p => p - 1)}
+                  className="p-1.5 rounded-lg hover:bg-slate-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 rotate-90" />
+                </button>
+                <span className="text-[10px] font-black tabular-nums text-slate-400">{topPage + 1}/{Math.max(1, Math.ceil(displayTopStudents.length / ITEMS_PER_PAGE))}</span>
+                <button 
+                  disabled={(topPage + 1) * ITEMS_PER_PAGE >= displayTopStudents.length}
+                  onClick={() => setTopPage(p => p + 1)}
+                  className="p-1.5 rounded-lg hover:bg-slate-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 -rotate-90" />
+                </button>
               </div>
            </div>
-           <div className="space-y-6">
-              {displayTopStudents.map((student, i) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: -10 }}
+           
+           <div className="space-y-4 flex-1">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={topPage}
+                  initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  key={student.uid} 
-                  className="flex items-center justify-between group"
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
                 >
-                   <div className="flex items-center gap-4">
-                      <div 
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-slate-900 font-black text-[15px] border-4 border-white shadow-lg"
-                        style={{ backgroundColor: getPastelColor(student.uid) }}
-                      >
-                         {student.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                         <div className="text-[16px] font-black text-slate-900 leading-tight group-hover:text-[#5a7395] transition-colors">{student.name}</div>
-                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">MES: {(student as any).mes || (80 + (displayTopStudents.length - i) * 3)}</span>
-                            <span className="text-slate-200">/</span>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{student.houseId}</span>
-                         </div>
-                      </div>
-                   </div>
-                   <div className="text-[16px] font-black text-emerald-600 bg-emerald-50/50 px-4 py-1.5 rounded-xl">{student.points} pts</div>
+                  {displayTopStudents.slice(topPage * ITEMS_PER_PAGE, (topPage + 1) * ITEMS_PER_PAGE).map((student, i) => (
+                    <div 
+                      key={student.uid} 
+                      className="flex items-center justify-between group"
+                    >
+                       <div className="flex items-center gap-3">
+                          <div 
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-900 font-black text-[13px] border-2 border-white shadow-md"
+                            style={{ backgroundColor: getPastelColor(student.uid) }}
+                          >
+                             {student.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                             <div className="text-[14px] font-black text-slate-900 leading-tight group-hover:text-[#5a7395] transition-colors">{student.name}</div>
+                             <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{student.houseId}</span>
+                             </div>
+                          </div>
+                       </div>
+                       <div className="text-[14px] font-black text-emerald-600 bg-emerald-50/50 px-3 py-1 rounded-lg">{student.points} pts</div>
+                    </div>
+                  ))}
                 </motion.div>
-              ))}
+              </AnimatePresence>
            </div>
         </div>
 
         {/* Activity Stream */}
         <div className="bg-white border border-slate-100 rounded-[32px] p-8 shadow-2xl shadow-slate-900/5 flex flex-col">
-           <div className="flex items-center gap-4 mb-1.5">
-              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 text-indigo-500">
-                <Zap className="w-5 h-5" fill="currentColor" />
+           <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+                  <Zap className="w-5 h-5" fill="currentColor" />
+                </div>
+                <h4 className="text-[18px] font-black text-slate-900 leading-none">Activity Stream</h4>
               </div>
-              <h4 className="text-[18px] font-black text-slate-900 leading-none">Activity Stream</h4>
+
+              {/* Pagination Controls */}
+              <div className="flex items-center gap-1">
+                <button 
+                  disabled={logsPage === 0}
+                  onClick={() => setLogsPage(p => p - 1)}
+                  className="p-1.5 rounded-lg hover:bg-slate-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 rotate-90" />
+                </button>
+                <span className="text-[10px] font-black tabular-nums text-slate-400">{logsPage + 1}/{Math.max(1, Math.ceil(displayLogs.length / ITEMS_PER_PAGE))}</span>
+                <button 
+                  disabled={(logsPage + 1) * ITEMS_PER_PAGE >= displayLogs.length}
+                  onClick={() => setLogsPage(p => p + 1)}
+                  className="p-1.5 rounded-lg hover:bg-slate-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 -rotate-90" />
+                </button>
+              </div>
            </div>
-           <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-8 pl-14">Real-Time Event Broadcast</p>
+           <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-8 pl-14">Event Broadcast</p>
            
            <div className="flex-1 overflow-hidden">
-              <div className="space-y-4">
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {displayLogs.map((log) => {
-                    const logDate = log.timestamp?.toDate ? log.timestamp.toDate() : (log.timestamp ? new Date(log.timestamp) : new Date());
-                    const isPositive = log.points > 0;
-                    return (
-                      <motion.div 
-                        key={log.id} 
-                        layout
-                        initial={{ opacity: 0, x: -30, scale: 0.9 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="flex items-start gap-4 p-3 rounded-2xl bg-slate-50/30 border border-transparent hover:border-slate-100 transition-all"
-                      >
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                          isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
-                        )}>
-                           {isPositive ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              <div className="space-y-3">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={logsPage}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-3"
+                  >
+                    {displayLogs.slice(logsPage * ITEMS_PER_PAGE, (logsPage + 1) * ITEMS_PER_PAGE).map((log) => {
+                      const logDate = log.timestamp?.toDate ? log.timestamp.toDate() : (log.timestamp ? new Date(log.timestamp) : new Date());
+                      const isPositive = log.points > 0;
+                      return (
+                        <div 
+                          key={log.id} 
+                          className="flex items-start gap-3 p-2 rounded-xl bg-slate-50/30 border border-transparent hover:border-slate-100 transition-all"
+                        >
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
+                            isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
+                          )}>
+                             {isPositive ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </div>
+                          <div className="flex-1 overflow-hidden">
+                             <div className="text-[12px] leading-tight">
+                                <span className={cn("font-black", isPositive ? "text-emerald-600" : "text-red-600")}>
+                                  {isPositive ? `+${log.points}` : log.points} pts
+                                </span>
+                                <span className="text-slate-400 font-medium"> to </span> 
+                                <span className="font-black text-slate-900">{log.targetName || (log as any).awardedBy}</span>
+                             </div>
+                             <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[9px] font-bold text-slate-400 capitalize bg-white px-1.5 py-0.5 rounded-lg border border-slate-100">{log.category}</span>
+                                <span className="text-slate-200">•</span>
+                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest whitespace-nowrap">{formatDistanceToNow(logDate)} ago</span>
+                             </div>
+                          </div>
                         </div>
-                        <div className="flex-1 overflow-hidden">
-                           <div className="text-[14px] leading-tight">
-                              <span className={cn("font-black", isPositive ? "text-emerald-600" : "text-red-600")}>
-                                {isPositive ? `+${log.points}` : log.points} pts
-                              </span>
-                              <span className="text-slate-400 font-medium"> to </span> 
-                              <span className="font-black text-slate-900">{log.targetName || (log as any).awardedBy}</span>
-                           </div>
-                           <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[9px] font-bold text-slate-400 capitalize bg-white px-1.5 py-0.5 rounded-lg border border-slate-100">{log.category}</span>
-                              <span className="text-slate-200">•</span>
-                              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest whitespace-nowrap">{formatDistanceToNow(logDate)} ago</span>
-                           </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                      );
+                    })}
+                  </motion.div>
                 </AnimatePresence>
               </div>
            </div>
         </div>
 
         {/* Needs a Boost */}
-        <div className="bg-white border border-red-50 rounded-[32px] p-8 shadow-2xl shadow-red-900/5">
-           <div className="flex items-center gap-4 mb-8">
-              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-500">
-                <TrendingDown className="w-5 h-5" />
+        <div className="bg-white border border-red-50 rounded-[32px] p-8 shadow-2xl shadow-red-900/5 flex flex-col">
+           <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-500">
+                  <TrendingDown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-[18px] font-black text-slate-900 leading-none">Needs a Boost</h4>
+                  <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-0.5">Support Focus</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-[18px] font-black text-slate-900 leading-none">Needs a Boost</h4>
-                <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mt-0.5">Support & Pastoral Focus</p>
+
+              {/* Pagination Controls */}
+              <div className="flex items-center gap-1">
+                <button 
+                  disabled={lowPage === 0}
+                  onClick={() => setLowPage(p => p - 1)}
+                  className="p-1.5 rounded-lg hover:bg-slate-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 rotate-90" />
+                </button>
+                <span className="text-[10px] font-black tabular-nums text-slate-400">{lowPage + 1}/{Math.max(1, Math.ceil(displayLowStudents.length / ITEMS_PER_PAGE))}</span>
+                <button 
+                  disabled={(lowPage + 1) * ITEMS_PER_PAGE >= displayLowStudents.length}
+                  onClick={() => setLowPage(p => p + 1)}
+                  className="p-1.5 rounded-lg hover:bg-slate-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronDown className="w-4 h-4 -rotate-90" />
+                </button>
               </div>
            </div>
-           <div className="space-y-6">
-              {displayLowStudents.map((student, i) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: 10 }}
+           
+           <div className="space-y-4 flex-1">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={lowPage}
+                  initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  key={student.uid} 
-                  className="flex items-center justify-between opacity-90 group"
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
                 >
-                   <div className="flex items-center gap-4">
-                      <div 
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-slate-900 font-black text-[15px] border-4 border-white shadow-md"
-                        style={{ backgroundColor: getPastelColor(student.uid) }}
-                      >
-                         {student.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                         <div className="text-[16px] font-black text-slate-900 leading-tight group-hover:text-red-700 transition-colors uppercase tabular-nums">{student.name}</div>
-                         <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">MES: {(student as any).mes || (80 + i)}</span>
-                            <span className="text-slate-200">/</span>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{student.houseId}</span>
-                         </div>
-                      </div>
-                   </div>
-                   <div className="text-[16px] font-black text-red-600 bg-red-50/50 px-4 py-1.5 rounded-xl">{student.points || 0} pts</div>
+                  {displayLowStudents.slice(lowPage * ITEMS_PER_PAGE, (lowPage + 1) * ITEMS_PER_PAGE).map((student, i) => (
+                    <div 
+                      key={student.uid} 
+                      className="flex items-center justify-between opacity-90 group"
+                    >
+                       <div className="flex items-center gap-3">
+                          <div 
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-900 font-black text-[13px] border-2 border-white shadow-md"
+                            style={{ backgroundColor: getPastelColor(student.uid) }}
+                          >
+                             {student.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                             <div className="text-[14px] font-black text-slate-900 leading-tight group-hover:text-red-700 transition-colors uppercase tabular-nums">{student.name}</div>
+                             <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{student.houseId}</span>
+                             </div>
+                          </div>
+                       </div>
+                       <div className="text-[14px] font-black text-red-600 bg-red-50/50 px-3 py-1 rounded-lg">{student.points || 0} pts</div>
+                    </div>
+                  ))}
                 </motion.div>
-              ))}
+              </AnimatePresence>
            </div>
         </div>
 
