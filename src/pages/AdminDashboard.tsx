@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 
 import UserManager from '../components/UserManager';
 import PointManagementModal from '../components/PointManagementModal';
+import HousePointModal from '../components/HousePointModal';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isPointModalOpen, setIsPointModalOpen] = useState(false);
+  const [isHousePointModalOpen, setIsHousePointModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
@@ -54,14 +56,9 @@ export default function AdminDashboard() {
 
   const menuGroups = [
     {
-      label: 'OPERATIONS',
-      items: [
-        { id: 'dashboard', label: 'House Points', icon: TrendingUp },
-      ]
-    },
-    {
       label: 'INSTITUTIONAL RESEARCH',
       items: [
+        { id: 'dashboard', label: 'House Points', icon: TrendingUp },
         { id: 'users', label: 'Students & Staff', icon: Users },
         { id: 'live', label: 'Live Display', icon: Tv, action: () => navigate('/live') },
       ]
@@ -73,6 +70,11 @@ export default function AdminDashboard() {
       <PointManagementModal 
         isOpen={isPointModalOpen} 
         onClose={() => setIsPointModalOpen(false)} 
+      />
+
+      <HousePointModal
+        isOpen={isHousePointModalOpen}
+        onClose={() => setIsHousePointModalOpen(false)}
       />
       {/* Sidebar - Matching Image Style */}
       <aside className={cn(
@@ -90,45 +92,28 @@ export default function AdminDashboard() {
            </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-8 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {menuGroups.map(group => (
-            <div key={group.label} className="space-y-2">
-              <h3 className="px-4 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">{group.label}</h3>
-              <div className="space-y-1">
-                {group.items.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => (item as any).action ? (item as any).action() : setActiveTab(item.id as any)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[14px] font-bold transition-all",
-                      activeTab === item.id 
-                        ? "bg-[#eff6ff] text-slate-900 shadow-sm" 
-                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
-                    )}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+            <div key={group.label} className="space-y-1">
+              {group.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => (item as any).action ? (item as any).action() : setActiveTab(item.id as any)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[14px] font-bold transition-all",
+                    activeTab === item.id 
+                      ? "bg-[#eff6ff] text-slate-900 shadow-sm" 
+                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
+                  )}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </button>
+              ))}
             </div>
           ))}
         </nav>
 
-        <div className="p-6 mt-auto border-t border-slate-50">
-           <div className="flex items-center gap-3 p-2">
-              <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white text-sm font-bold">
-                 {user?.name?.charAt(0) || 'A'}
-              </div>
-              <div className="flex-1 overflow-hidden">
-                 <p className="text-[14px] font-bold text-slate-900 truncate">{user?.name}</p>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Super Admin</p>
-              </div>
-              <button onClick={logout} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors">
-                 <LogOut className="w-4 h-4" />
-              </button>
-           </div>
-        </div>
         </div>
       </aside>
 
@@ -164,8 +149,17 @@ export default function AdminDashboard() {
                  )}>
                    {dbStatus === 'connected' ? 'Core Sync Active' : 'Offline'}
                  </div>
-                 <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-[12px]">
-                   {user?.name?.substring(0,2).toUpperCase() || 'AD'}
+                 <div className="flex items-center gap-2 pl-4 border-l border-slate-100 ml-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-[12px]">
+                      {user?.name?.substring(0,2).toUpperCase() || 'AD'}
+                    </div>
+                    <button 
+                      onClick={logout}
+                      className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-all active:scale-95"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-4.5 h-4.5" />
+                    </button>
                  </div>
               </div>
            </div>
@@ -181,12 +175,21 @@ export default function AdminDashboard() {
                       <h2 className="text-[56px] font-black text-slate-900 tracking-tighter leading-none mb-2">House Points</h2>
                       <p className="text-[14px] font-bold text-slate-400 uppercase tracking-widest mt-1">Live House Metrics & Standing</p>
                     </div>
-                    <button 
-                      onClick={() => setIsPointModalOpen(true)}
-                      className="btn-slate py-4 px-8 rounded-full flex items-center gap-3 text-[16px] font-black shadow-lg shadow-slate-200"
-                    >
-                      <Plus className="w-5 h-5" /> Manage Student Points
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => setIsHousePointModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-4 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-full font-black text-[16px] transition-all shadow-sm active:scale-95"
+                      >
+                        <TrendingUp className="w-5 h-5" />
+                        Direct House Points
+                      </button>
+                      <button 
+                        onClick={() => setIsPointModalOpen(true)}
+                        className="btn-slate py-4 px-8 rounded-full flex items-center gap-3 text-[16px] font-black shadow-lg shadow-slate-200 active:scale-95"
+                      >
+                        <Plus className="w-5 h-5" /> Manage Student Points
+                      </button>
+                    </div>
                  </div>
 
                  <div className="grid grid-cols-4 gap-6">

@@ -38,6 +38,7 @@ export default function UserManager() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('student');
   const [newHouseId, setNewHouseId] = useState<string>('phoenix');
+  const [newPoints, setNewPoints] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset to first page when filters change
@@ -110,7 +111,7 @@ export default function UserManager() {
 
       if (newRole === 'student') {
         newUser.houseId = newHouseId;
-        newUser.points = 0;
+        newUser.points = newPoints;
       }
 
       await setDoc(doc(db, 'users', authUser.uid), newUser);
@@ -196,7 +197,7 @@ export default function UserManager() {
   };
 
   const downloadCSVTemplate = () => {
-    const csvContent = "name,email,password,role,houseId\nJohn Doe,john.doe@alphabet.school,Student123,student,phoenix\nJane Smith,jane.smith@alphabet.school,Student456,student,pegasus\nAdmin User,admin@alphabet.school,Admin789,admin,";
+    const csvContent = "name,email,password,role,houseId,points\nJohn Doe,john.doe@alphabet.school,Student123,student,phoenix,0\nJane Smith,jane.smith@alphabet.school,Student456,student,pegasus,50\nAdmin User,admin@alphabet.school,Admin789,admin,,0";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -252,13 +253,15 @@ export default function UserManager() {
         row[normalizeKey(key)] = rawRow[key];
       });
 
-      const { name, email, password, role, houseid } = row;
+      const { name, email, password, role, houseid, points: rowPoints } = row;
 
       if (!name || !email || !password) {
         errors.push(`Row ${i + 1}: Missing required fields. Expected 'name', 'email', and 'password'. Found keys: ${Object.keys(row).join(', ')}`);
         setImportProgress(p => ({ ...p, current: i + 1 }));
         continue;
       }
+
+      const startingPoints = parseInt(rowPoints) || 0;
 
       const validatedRole: UserRole = (role && ['admin', 'teacher', 'student'].includes(role.toLowerCase().trim())) 
         ? role.toLowerCase().trim() as UserRole 
@@ -288,7 +291,7 @@ export default function UserManager() {
 
       if (validatedRole === 'student') {
         newUser.houseId = (houseid || 'phoenix').toLowerCase().trim();
-        newUser.points = 0;
+        newUser.points = startingPoints;
       }
 
       try {
@@ -616,6 +619,16 @@ export default function UserManager() {
               >
                 {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
+            </div>
+            <div className="col-span-1 flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Starting Points</label>
+              <input 
+                type="number"
+                value={newPoints}
+                disabled={newRole !== 'student'}
+                onChange={(e) => setNewPoints(Number(e.target.value))}
+                className="bg-white border border-border-theme p-2 rounded-lg text-[13px] font-bold disabled:opacity-40"
+              />
             </div>
             <div className="col-span-1">
               <button 
