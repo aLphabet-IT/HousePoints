@@ -25,7 +25,7 @@ export default function SystemReset() {
     setStatus('idle');
 
     try {
-      await performSystemReset(newYear, user?.uid || '', user?.name || 'Admin');
+      await performSystemReset(newYear, user?.uid || '', user?.name || 'Admin', config?.academicYear || '');
       setStatus('success');
       setConfirmText('');
       setNewYear('');
@@ -146,12 +146,12 @@ export default function SystemReset() {
           <h4 className="text-[16px] font-bold text-white">What happens during a reset?</h4>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
             {[
-              "House points are reset to 0 across all houses.",
-              "The academic year is updated for tracking purposes.",
-              "Recent activity logs (pointsLog) are purged.",
-              "All student and teacher profiles are deleted (except yours).",
-              "Individual point balances for all users are cleared.",
-              "This action is absolute and cannot be undone."
+              "Current house totals are archived into historical records.",
+              "House points are reset to zero for the new academic year.",
+              "All student points are cleared and reset to zero.",
+              "System configuration is updated to the new year.",
+              "Recent logs are kept, linked to the previous year.",
+              "The registry of students and staff remains intact."
             ].map((item, i) => (
               <li key={i} className="text-[12px] font-medium text-slate-400 flex items-start gap-2">
                 <div className="w-1 h-1 rounded-full bg-slate-700 mt-2 shrink-0" />

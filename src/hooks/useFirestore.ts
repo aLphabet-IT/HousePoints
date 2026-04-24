@@ -42,11 +42,27 @@ export async function updateAcademicYear(year: string, adminName: string) {
   }
 }
 
-export async function performSystemReset(newYear: string, currentAdminUid: string, adminName: string) {
+export async function performSystemReset(newYear: string, currentAdminUid: string, adminName: string, currentYear: string) {
   try {
     const batch = writeBatch(db);
 
-    // 1. Update System Config
+    // 1. Archive Current Year House Stats
+    const housesSnap = await getDocs(collection(db, 'houses'));
+    const houseStats: Record<string, number> = {};
+    housesSnap.forEach(h => {
+      houseStats[h.id] = h.data().totalPoints || 0;
+    });
+
+    const archiveRef = doc(db, 'academicYears', currentYear);
+    batch.set(archiveRef, {
+      id: currentYear,
+      name: currentYear,
+      endDate: Date.now(),
+      houseStats,
+      archivedBy: adminName
+    });
+
+    // 2. Update System Config
     const configRef = doc(db, 'system', 'config');
     batch.set(configRef, {
       academicYear: newYear,
@@ -54,23 +70,16 @@ export async function performSystemReset(newYear: string, currentAdminUid: strin
       resetBy: adminName
     }, { merge: true });
 
-    // 2. Reset Houses
-    const housesSnap = await getDocs(collection(db, 'houses'));
+    // 3. Reset Houses
     housesSnap.forEach(h => {
       batch.update(h.ref, { totalPoints: 0, lastUpdated: Date.now() });
     });
 
-    // 3. Clear Logs (up to 400 at a time)
-    const logsSnap = await getDocs(query(collection(db, 'pointsLog'), limit(400)));
-    logsSnap.forEach(l => batch.delete(l.ref));
-
-    // 4. Delete Users (except self)
-    const usersSnap = await getDocs(query(collection(db, 'users'), limit(400)));
+    // 4. Reset Student Points (Archive historical points in logs, but zero out profile)
+    // We don't delete users anymore. We just reset their points.
+    const usersSnap = await getDocs(collection(db, 'users'));
     usersSnap.forEach(u => {
-      if (u.id !== currentAdminUid) {
-        batch.delete(u.ref);
-      } else {
-        // Reset admin's own points
+      if (u.data().role === 'student' || u.id === currentAdminUid) {
         batch.update(u.ref, { points: 0 });
       }
     });
@@ -190,21 +199,31 @@ export function useHouses() {
   return { houses, loading };
 }
 
-export function useLogs(logsLimit = 20) {
+export function useLogs(limitOrYear: string | number = 20, possibleLimit: number = 20) {
   const [logs, setLogs] = useState<PointLog[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const logsLimit = typeof limitOrYear === 'number' ? limitOrYear : possibleLimit;
+  const academicYear = typeof limitOrYear === 'string' ? limitOrYear : undefined;
+
   useEffect(() => {
-    const q = query(collection(db, 'pointsLog'), orderBy('timestamp', 'desc'), limit(logsLimit));
+    // We avoid composite index by fetching all logs and filtering client-side if academicYear is provided.
+    const q = query(collection(db, 'pointsLog'), orderBy('timestamp', 'desc'), limit(academicYear ? 100 : logsLimit));
+    
     return onSnapshot(q, (snapshot) => {
-      const logsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as PointLog));
+      let logsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as PointLog));
+      
+      if (academicYear) {
+        logsData = logsData.filter(l => l.academicYear === academicYear).slice(0, logsLimit);
+      }
+
       setLogs(logsData);
       setLoading(false);
     }, (error) => {
       console.error("Firestore error in useLogs:", error);
       setLoading(false);
     });
-  }, [logsLimit]);
+  }, [logsLimit, academicYear]);
 
   return { logs, loading };
 }
@@ -214,14 +233,18 @@ export function useStudents(studentsLimit = 10) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Note: We're filtering by role 'student' and ordering by points
+    // Reverting to client-side filtering for role to avoid composite index (where + orderBy)
     const q = query(
       collection(db, 'users'), 
       orderBy('points', 'desc'), 
-      limit(studentsLimit)
+      limit(studentsLimit * 2) // Fetch more to ensure we get enough students
     );
     return onSnapshot(q, (snapshot) => {
-      const studentsData = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
+      const studentsData = snapshot.docs
+        .map(doc => ({ ...doc.data(), uid: doc.id } as User))
+        .filter(u => u.role === 'student')
+        .slice(0, studentsLimit);
+        
       setStudents(studentsData);
       setLoading(false);
     }, (error) => {
@@ -238,12 +261,11 @@ export function useNeedsBoostStudents(studentsLimit = 10) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // We remove the 'where' clause here to avoid requiring a composite index.
-    // Instead, we sort by points and filter the role client-side.
+    // Reverting to client-side filtering for role to avoid composite index (where + orderBy)
     const q = query(
       collection(db, 'users'), 
       orderBy('points', 'asc'), 
-      limit(studentsLimit * 2) // Fetch more to account for non-student roles in the sort
+      limit(studentsLimit * 3) // Fetch more to find enough students
     );
     return onSnapshot(q, (snapshot) => {
       const studentsData = snapshot.docs
@@ -263,7 +285,7 @@ export function useNeedsBoostStudents(studentsLimit = 10) {
 }
 
 
-export async function addPoints(houseId: string, points: number, reason: string, category: string, awardedBy: string, awardedByUid: string, role: string) {
+export async function addPoints(academicYear: string, houseId: string, points: number, reason: string, category: string, awardedBy: string, awardedByUid: string, role: string) {
   try {
     const batch = writeBatch(db);
     
@@ -275,6 +297,7 @@ export async function addPoints(houseId: string, points: number, reason: string,
 
     const logRef = doc(collection(db, 'pointsLog'));
     batch.set(logRef, {
+      academicYear,
       houseId,
       points,
       reason,
@@ -292,6 +315,7 @@ export async function addPoints(houseId: string, points: number, reason: string,
 }
 
 export async function awardPointsToStudent(
+  academicYear: string,
   studentId: string, 
   studentName: string,
   houseId: string, 
@@ -318,6 +342,7 @@ export async function awardPointsToStudent(
 
     const logRef = doc(collection(db, 'pointsLog'));
     batch.set(logRef, {
+      academicYear,
       houseId,
       points,
       reason,

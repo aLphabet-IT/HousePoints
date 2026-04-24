@@ -349,6 +349,12 @@ export default function LiveDisplay() {
                              <div className="text-[13px] md:text-[14px] font-black text-slate-900 leading-tight group-hover:text-[#5a7395] transition-colors">{student.name}</div>
                              <div className="flex items-center gap-2">
                                 <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{student.houseId}</span>
+                                {student.grade && (
+                                  <>
+                                    <span className="text-slate-200">•</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gr {student.grade}{student.section && `-${student.section}`}</span>
+                                  </>
+                                )}
                              </div>
                           </div>
                        </div>
@@ -466,6 +472,12 @@ export default function LiveDisplay() {
                              <div className="text-[13px] md:text-[14px] font-black text-slate-900 leading-tight group-hover:text-red-700 transition-colors uppercase tabular-nums">{student.name}</div>
                              <div className="flex items-center gap-2">
                                 <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{student.houseId}</span>
+                                {student.grade && (
+                                  <>
+                                    <span className="text-slate-200">•</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gr {student.grade}{student.section && `-${student.section}`}</span>
+                                  </>
+                                )}
                              </div>
                           </div>
                        </div>

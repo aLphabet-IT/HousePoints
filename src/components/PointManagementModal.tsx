@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase
 import { db } from '../lib/firebase';
 import { User, HOUSES, PointReason } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useSystemConfig } from '../hooks/useFirestore';
 import { cn } from '../lib/utils';
 
 interface PointManagementModalProps {
@@ -14,6 +15,7 @@ interface PointManagementModalProps {
 
 export default function PointManagementModal({ isOpen, onClose }: PointManagementModalProps) {
   const { user } = useAuth();
+  const { config } = useSystemConfig();
   const [students, setStudents] = useState<User[]>([]);
   const [reasons, setReasons] = useState<PointReason[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,7 +60,9 @@ export default function PointManagementModal({ isOpen, onClose }: PointManagemen
   const filteredStudents = useMemo(() => {
     return students.filter(s => 
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.houseId?.toLowerCase().includes(searchQuery.toLowerCase())
+      s.houseId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.grade?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.section?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [students, searchQuery]);
 
@@ -90,6 +94,7 @@ export default function PointManagementModal({ isOpen, onClose }: PointManagemen
       const { awardPointsToStudent } = await import('../hooks/useFirestore');
       
       await awardPointsToStudent(
+        config?.academicYear || new Date().getFullYear().toString(),
         selectedStudentId,
         selectedStudent.name,
         selectedStudent.houseId,
@@ -202,7 +207,9 @@ export default function PointManagementModal({ isOpen, onClose }: PointManagemen
                           >
                             <option value="">Select a student</option>
                             {filteredStudents.map(s => (
-                              <option key={s.uid} value={s.uid}>{s.name} ({s.houseId})</option>
+                              <option key={s.uid} value={s.uid}>
+                                {s.name} {s.grade ? `(Gr ${s.grade}${s.section ? `-${s.section}` : ''})` : ''} - {s.houseId}
+                              </option>
                             ))}
                           </select>
                           <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

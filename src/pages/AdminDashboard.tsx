@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useHouses, useLogs, addPoints } from '../hooks/useFirestore';
+import { useHouses, useLogs, addPoints, useSystemConfig } from '../hooks/useFirestore';
 import { HOUSES, POINT_CATEGORIES } from '../types';
 import HouseCard from '../components/HouseCard';
 import Leaderboard from '../components/Leaderboard';
@@ -20,7 +20,8 @@ import {
   Clock,
   TrendingUp,
   X,
-  ShieldAlert
+  ShieldAlert,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -29,15 +30,15 @@ import UserManager from '../components/UserManager';
 import PointManagementModal from '../components/PointManagementModal';
 import HousePointModal from '../components/HousePointModal';
 import PointSettings from '../components/PointSettings';
-import SystemReset from '../components/SystemReset';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { config } = useSystemConfig();
   const { houses } = useHouses();
-  const { logs } = useLogs(30);
+  const { logs } = useLogs(config?.academicYear, 30);
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'settings' | 'system'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'settings'>('dashboard');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isPointModalOpen, setIsPointModalOpen] = useState(false);
@@ -63,9 +64,8 @@ export default function AdminDashboard() {
       label: 'INSTITUTIONAL RESEARCH',
       items: [
         { id: 'dashboard', label: 'House Points', icon: TrendingUp },
-        { id: 'users', label: 'Students & Staff', icon: Users },
+        { id: 'users', label: 'User Management', icon: ShieldCheck },
         { id: 'settings', label: 'Point Settings', icon: Settings },
-        { id: 'system', label: 'System Tools', icon: ShieldAlert },
         { id: 'live', label: 'Live Display', icon: Tv, action: () => navigate('/live') },
       ]
     }
@@ -104,10 +104,10 @@ export default function AdminDashboard() {
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className={cn(
-              "fixed lg:relative inset-y-0 left-0 bg-white border-r border-slate-100 flex flex-col shrink-0 z-50 overflow-hidden shadow-2xl lg:shadow-none w-[280px]"
+              "fixed lg:relative inset-y-0 left-0 bg-white border-r border-slate-100 flex flex-col shrink-0 z-50 overflow-hidden shadow-2xl lg:shadow-none w-[240px]"
             )}
           >
-            <div className="w-[280px] flex flex-col h-full">
+            <div className="w-[240px] flex flex-col h-full">
               <div className="p-8 pb-4 flex items-center justify-between">
                <div className="flex items-center gap-3">
                   <img 
@@ -252,12 +252,6 @@ export default function AdminDashboard() {
             {activeTab === 'settings' && (
               <div className="p-4 sm:p-6 lg:p-10 bg-white/50 h-full">
                  <PointSettings />
-              </div>
-            )}
-
-            {activeTab === 'system' && (
-              <div className="p-4 sm:p-6 lg:p-10 bg-white/50 h-full">
-                 <SystemReset />
               </div>
             )}
           </div>

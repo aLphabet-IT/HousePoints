@@ -9,6 +9,8 @@ export interface User {
   role: UserRole;
   houseId?: string; // For students
   points?: number; 
+  grade?: string;
+  section?: string;
 }
 
 export interface House {
@@ -30,6 +32,7 @@ export interface PointReason {
 
 export interface PointLog {
   id: string;
+  academicYear: string;
   houseId: string;
   points: number;
   reason: string;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useHouses, useStudents, awardPointsToStudent } from '../hooks/useFirestore';
+import { useHouses, useStudents, awardPointsToStudent, useSystemConfig } from '../hooks/useFirestore';
 import { HOUSES, POINT_CATEGORIES, User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,6 +20,7 @@ import { db } from '../lib/firebase';
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
+  const { config } = useSystemConfig();
   const { houses } = useHouses();
   const { students } = useStudents(10);
   
@@ -58,6 +59,7 @@ export default function AnalyticsPage() {
     setIsSubmitting(true);
     try {
       await awardPointsToStudent(
+        config?.academicYear || new Date().getFullYear().toString(),
         selectedStudent.uid,
         selectedStudent.name,
         selectedStudent.houseId || 'unassigned',

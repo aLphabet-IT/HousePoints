@@ -70,7 +70,7 @@ export default function StudentDashboard() {
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className={cn(
-                "fixed inset-y-0 left-0 w-[280px] bg-white border-r border-slate-100 p-6 flex flex-col gap-1 z-50 shadow-2xl overflow-hidden"
+                "fixed inset-y-0 left-0 w-[240px] bg-white border-r border-slate-100 p-6 flex flex-col gap-1 z-50 shadow-2xl overflow-hidden"
               )}
             >
                <div className="flex items-center justify-between mb-8">
@@ -103,7 +103,7 @@ export default function StudentDashboard() {
         </AnimatePresence>
 
         {/* Desktop Sidebar (Always Visible) */}
-        <nav className="hidden lg:flex flex-col w-[240px] bg-white border-r border-slate-100 p-5 gap-1 shrink-0">
+        <nav className="hidden lg:flex flex-col w-[200px] bg-white border-r border-slate-100 p-5 gap-1 shrink-0">
            <button className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-bold bg-[#eff6ff] text-slate-900 text-left">
              <UserIcon className="w-4 h-4" /> My Progress
            </button>

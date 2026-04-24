@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -6,8 +6,8 @@ import { getAuth, createUserWithEmailAndPassword, signOut, setPersistence, inMem
 import firebaseConfig from '../../firebase-applet-config.json';
 import { User, UserRole, HOUSES } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield, User as UserIcon, Trash2, Edit2, Check, UserPlus, X, DatabaseZap, Mail, Lock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Shield, User as UserIcon, Trash2, Edit2, Check, UserPlus, X, DatabaseZap, Mail, Lock, AlertCircle, ChevronLeft, ChevronRight, Award, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import Papa from 'papaparse';
 
@@ -17,14 +17,53 @@ export default function UserManager() {
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('student');
   const [editHouseId, setEditHouseId] = useState<string | undefined>(undefined);
+  const [editGrade, setEditGrade] = useState('');
+  const [editSection, setEditSection] = useState('');
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
-
+  const [mgmtTab, setMgmtTab] = useState<'all' | 'classes' | 'houses'>('all');
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
+
+  const classGroups = useMemo(() => {
+    const map = new Map<string, User[]>();
+    users.filter(u => u.role === 'student' || (u.role === 'teacher' && u.grade)).forEach(u => {
+      let gradeStr = u.grade || '';
+      // Strip redundant "Grade" if present to normalize
+      if (gradeStr.toLowerCase().startsWith('grade')) {
+        gradeStr = gradeStr.replace(/grade\s*/i, '');
+      }
+      
+      const key = gradeStr ? `Grade ${gradeStr}${u.section ? `-${u.section}` : ''}` : 'Unassigned';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(u);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [users]);
+
+  const houseGroups = useMemo(() => {
+    const map = new Map<string, User[]>();
+    users.filter(u => u.role === 'student' || (u.role === 'teacher' && u.houseId)).forEach(u => {
+      const key = u.houseId || 'Unassigned';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(u);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [users]);
+
+  const stats = useMemo(() => {
+    return {
+      total: users.length,
+      students: users.filter(u => u.role === 'student').length,
+      teachers: users.filter(u => u.role === 'teacher').length,
+      admins: users.filter(u => u.role === 'admin').length,
+    };
+  }, [users]);
   
   // Bulk import state
   const [isImporting, setIsImporting] = useState(false);
@@ -36,6 +75,8 @@ export default function UserManager() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newGrade, setNewGrade] = useState('');
+  const [newSection, setNewSection] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('student');
   const [newHouseId, setNewHouseId] = useState<string>('phoenix');
   const [newPoints, setNewPoints] = useState<number>(0);
@@ -60,71 +101,97 @@ export default function UserManager() {
     const name = u.name || '';
     const uid = u.uid || '';
     const email = u.email || '';
-    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          uid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          email.toLowerCase().includes(searchTerm.toLowerCase());
+    const grade = u.grade || '';
+    const section = u.section || '';
+    const house = u.houseId || '';
+    const gradeSection = grade && section ? `${grade}-${section}` : (grade || section);
+
+    const searchLower = searchTerm.toLowerCase();
+    
+    const matchesSearch = name.toLowerCase().includes(searchLower) || 
+                          uid.toLowerCase().includes(searchLower) ||
+                          email.toLowerCase().includes(searchLower) ||
+                          grade.toLowerCase().includes(searchLower) ||
+                          section.toLowerCase().includes(searchLower) ||
+                          house.toLowerCase().includes(searchLower) ||
+                          gradeSection.toLowerCase().includes(searchLower);
+
     const matchesRole = filterRole === 'all' || u.role === filterRole;
     return matchesSearch && matchesRole;
   });
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("handleAddUser triggered", { newName, newEmail, role: newRole });
+    console.log("handleAddUser triggered", { newName, role: newRole });
     
-    if (!newName || !newEmail || !newPassword || isSubmitting) {
-      console.warn("Validation failed or already submitting", { newName, newEmail, hasPassword: !!newPassword, isSubmitting });
-      return;
-    }
+    if (!newName || isSubmitting) return;
 
-    if (newPassword.length < 6) {
-      alert("Password must be at least 6 characters long.");
-      return;
+    // Validation for auth-based roles
+    if (newRole !== 'student') {
+      if (!newEmail || !newPassword) {
+        alert("Email and password are required for teachers and admins.");
+        return;
+      }
+      if (newPassword.length < 6) {
+        alert("Password must be at least 6 characters long.");
+        return;
+      }
     }
-
-    // REMOVED: Strict isOfflineMode block to allow attempt even if anonymous login failed
-    // The secondary app flow can work independently of the main app's auth state for the AUTH step.
-    // The Firestore sync step might still fail if current user has no permissions, but we'll catch that.
 
     setIsSubmitting(true);
     let secondaryApp;
     try {
-      console.log("Initializing secondary Firebase app for registration...");
-      const secondaryAppName = `RegistrationApp_${Date.now()}`;
-      // Spread config to ensure a fresh object
-      secondaryApp = initializeApp({ ...firebaseConfig }, secondaryAppName);
-      const secondaryAuth = getAuth(secondaryApp);
+      let uid = '';
       
-      console.log("Creating auth user...");
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPassword);
-      const authUser = userCredential.user;
-      console.log("Auth user created:", authUser.uid);
-      
-      await signOut(secondaryAuth);
+      if (newRole !== 'student') {
+        console.log("Initializing secondary Firebase app for registration...");
+        const secondaryAppName = `RegistrationApp_${Date.now()}`;
+        secondaryApp = initializeApp({ ...firebaseConfig }, secondaryAppName);
+        const secondaryAuth = getAuth(secondaryApp);
+        
+        console.log("Creating auth user...");
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPassword);
+        uid = userCredential.user.uid;
+        await signOut(secondaryAuth);
+      } else {
+        // For students, generate a simple ID
+        uid = `std_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 5)}`;
+      }
 
       console.log("Saving user profile to Firestore...");
       const newUser: User = {
-        uid: authUser.uid,
+        uid,
         name: newName,
-        email: newEmail,
         role: newRole,
       };
 
-      if (newRole === 'student') {
-        newUser.houseId = newHouseId;
-        newUser.points = newPoints;
+      if (newRole !== 'student') {
+        newUser.email = newEmail;
       }
 
-      await setDoc(doc(db, 'users', authUser.uid), newUser);
+      if (newRole === 'student' || newRole === 'teacher') {
+        newUser.houseId = newHouseId;
+        newUser.grade = newGrade;
+        newUser.section = newSection;
+        if (newRole === 'student') {
+          newUser.points = newPoints;
+        }
+      }
+
+      await setDoc(doc(db, 'users', uid), newUser);
       console.log("User profile saved successfully.");
       
       // Reset form
       setNewName('');
       setNewEmail('');
       setNewPassword('');
+      setNewGrade('');
+      setNewSection('');
       setShowAddForm(false);
-      alert(`Account created for ${newName}! User can now login.`);
+      alert(newRole === 'student' ? `Student ${newName} added to registry.` : `Account created for ${newName}! User can now login.`);
     } catch (err: any) {
       console.error("UserManager: Failed to create user:", err);
+      // ... rest of error handling ...
 
       // CRITICAL: Cleanup orphaned auth user if Firestore write failed
       // This prevents "auth/email-already-in-use" on subsequent attempts
@@ -172,6 +239,8 @@ export default function UserManager() {
     setEditName(u.name);
     setEditRole(u.role);
     setEditHouseId(u.houseId);
+    setEditGrade(u.grade || '');
+    setEditSection(u.section || '');
   };
 
   const handleSaveEdit = async (uid: string) => {
@@ -181,11 +250,15 @@ export default function UserManager() {
         role: editRole,
       };
 
-      if (editRole === 'student') {
+      if (editRole === 'student' || editRole === 'teacher') {
         updates.houseId = editHouseId || 'phoenix';
+        updates.grade = editGrade;
+        updates.section = editSection;
       } else {
         updates.houseId = null;
         updates.points = null;
+        updates.grade = null;
+        updates.section = null;
       }
 
       await updateDoc(doc(db, 'users', uid), updates);
@@ -197,7 +270,7 @@ export default function UserManager() {
   };
 
   const downloadCSVTemplate = () => {
-    const csvContent = "name,email,password,role,houseId,points\nJohn Doe,john.doe@alphabet.school,Student123,student,phoenix,0\nJane Smith,jane.smith@alphabet.school,Student456,student,pegasus,50\nAdmin User,admin@alphabet.school,Admin789,admin,,0";
+    const csvContent = "name,email,role,houseId,points,grade,section\nJohn Doe,john.doe@alphabet.school,student,phoenix,0,5,A\nJane Smith,jane.smith@alphabet.school,student,pegasus,50,6,B\nAdmin User,admin@alphabet.school,admin,,0,,";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -253,13 +326,7 @@ export default function UserManager() {
         row[normalizeKey(key)] = rawRow[key];
       });
 
-      const { name, email, password, role, houseid, points: rowPoints } = row;
-
-      if (!name || !email || !password) {
-        errors.push(`Row ${i + 1}: Missing required fields. Expected 'name', 'email', and 'password'. Found keys: ${Object.keys(row).join(', ')}`);
-        setImportProgress(p => ({ ...p, current: i + 1 }));
-        continue;
-      }
+      const { name, email, role, houseid, points: rowPoints, grade, section } = row;
 
       const startingPoints = parseInt(rowPoints) || 0;
 
@@ -269,43 +336,57 @@ export default function UserManager() {
 
       let secondaryApp;
       try {
-        const secondaryAppName = `Bulk_${Date.now()}_${i}`;
-        secondaryApp = initializeApp({ ...firebaseConfig }, secondaryAppName);
-        const secondaryAuth = getAuth(secondaryApp);
-        
-      // Ensure this auth doesn't disrupt main session
-      console.log("Setting persistence for secondary app...");
-      await setPersistence(secondaryAuth, inMemoryPersistence);
+        let authUid = '';
+        if (validatedRole !== 'student') {
+          if (!email || !email.includes('@')) {
+            errors.push(`Row ${i + 1} (${name}): Missing or invalid email for non-student role.`);
+            continue;
+          }
+
+          // Use a default password for bulk imported admins/teachers since column is removed
+          const defaultPassword = 'Welcome' + Math.floor(1000 + Math.random() * 9000) + '!';
+          
+          const secondaryAppName = `Bulk_${Date.now()}_${i}`;
+          secondaryApp = initializeApp({ ...firebaseConfig }, secondaryAppName);
+          const secondaryAuth = getAuth(secondaryApp);
+          
+          await setPersistence(secondaryAuth, inMemoryPersistence);
+          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), defaultPassword);
+          authUid = userCredential.user.uid;
+          await signOut(secondaryAuth);
+        } else {
+          authUid = `std_bulk_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 5)}`;
+        }
       
-      console.log("Creating auth user...");
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password.trim());
-      const authUser = userCredential.user;
-      
-      console.log("Saving student profile to Firestore...");
+      console.log("Saving user profile to Firestore...");
       const newUser: User = {
-        uid: authUser.uid,
+        uid: authUid,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
         role: validatedRole,
       };
+
+      if (validatedRole !== 'student') {
+        newUser.email = email.trim().toLowerCase();
+      }
 
       if (validatedRole === 'student') {
         newUser.houseId = (houseid || 'phoenix').toLowerCase().trim();
         newUser.points = startingPoints;
+        newUser.grade = grade ? grade.trim() : '';
+        newUser.section = section ? section.trim() : '';
       }
 
       try {
-        await setDoc(doc(db, 'users', authUser.uid), newUser);
+        await setDoc(doc(db, 'users', authUid), newUser);
         successCount++;
-        console.log(`Successfully added student: ${email}`);
       } catch (firestoreErr: any) {
-        console.error(`Firestore write failed for ${email}:`, firestoreErr);
-        errors.push(`Row ${i + 1} (${email}): Firestore sync failed. ${firestoreErr.message || firestoreErr.code}`);
-        // Attempt cleanup if auth was created but db sync failed
-        try { await authUser.delete(); } catch(e) {}
+        console.error(`Firestore write failed for ${name}:`, firestoreErr);
+        errors.push(`Row ${i + 1} (${name}): Firestore sync failed. ${firestoreErr.message || firestoreErr.code}`);
       }
       
-      await signOut(secondaryAuth);
+      if (secondaryApp) {
+        await signOut(getAuth(secondaryApp));
+      }
       } catch (err: any) {
         console.error(`Bulk Error at Row ${i+1}:`, err);
         errors.push(`Row ${i + 1} (${email}): ${err.code || err.message}`);
@@ -414,7 +495,42 @@ export default function UserManager() {
         </div>
       </div>
 
-      {/* CSV Confirmation Step */}
+      {/* Internal Management Tabs */}
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl mb-6 self-start shrink-0">
+        {[
+          { id: 'all', label: 'Global Registry', icon: UserIcon },
+          { id: 'classes', label: 'Class Management', icon: Users },
+          { id: 'houses', label: 'House Rosters', icon: Award }
+        ].map(tab => (
+           <button
+             key={tab.id}
+             onClick={() => {
+               setMgmtTab(tab.id as any);
+               setSelectedGroup(null);
+             }}
+             className={cn(
+               "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[12px] font-bold transition-all",
+               mgmtTab === tab.id 
+                 ? "bg-white text-slate-900 shadow-sm" 
+                 : "text-slate-400 hover:text-slate-600"
+             )}
+           >
+             <tab.icon className="w-3 h-3" />
+             {tab.label}
+           </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {mgmtTab === 'all' ? (
+          <motion.div 
+            key="all"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex-1 overflow-auto min-h-0"
+          >
+            {/* CSV Confirmation Step */}
       {pendingImportData && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
@@ -565,45 +681,76 @@ export default function UserManager() {
                 className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
               />
             </div>
-            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
-              <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address</label>
-              <div className="relative">
-                <input 
-                  type="email" 
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="name@gmail.com"
-                  required
-                  className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
-                />
-                <Mail className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Set Password</label>
-                <p className={cn(
-                  "text-[8px] sm:text-[9px] font-medium transition-colors",
-                  newPassword.length > 0 && newPassword.length < 6 ? "text-red-500" : "text-slate-400"
-                )}>Min. 6</p>
-              </div>
-              <div className="relative">
-                <input 
-                  type="password" 
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
-                />
-                <Lock className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
+            
+            {newRole !== 'student' ? (
+              <>
+                <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+                  <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address</label>
+                  <div className="relative">
+                    <input 
+                      type="email" 
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="name@gmail.com"
+                      required
+                      className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                    />
+                    <Mail className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+                <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Set Password</label>
+                    <p className={cn(
+                      "text-[8px] sm:text-[9px] font-medium transition-colors",
+                      newPassword.length > 0 && newPassword.length < 6 ? "text-red-500" : "text-slate-400"
+                    )}>Min. 6</p>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="password" 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                    />
+                    <Lock className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+                  <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Grade</label>
+                  <input 
+                    type="text" 
+                    value={newGrade}
+                    onChange={(e) => setNewGrade(e.target.value)}
+                    placeholder="e.g. 5"
+                    className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                  />
+                </div>
+                <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+                  <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Section</label>
+                  <input 
+                    type="text" 
+                    value={newSection}
+                    onChange={(e) => setNewSection(e.target.value)}
+                    placeholder="e.g. A"
+                    className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
+
             <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
               <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">System Role</label>
               <select 
                 value={newRole}
-                onChange={(e) => setNewRole(e.target.value as UserRole)}
+                onChange={(e) => {
+                  setNewRole(e.target.value as UserRole);
+                }}
                 className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-bold"
               >
                 <option value="admin">Admin</option>
@@ -615,10 +762,11 @@ export default function UserManager() {
               <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider opacity-50">House (Optional)</label>
               <select 
                 value={newHouseId}
-                disabled={newRole !== 'student'}
+                disabled={newRole === 'admin'}
                 onChange={(e) => setNewHouseId(e.target.value)}
                 className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-bold disabled:opacity-40"
               >
+                <option value="">No House</option>
                 {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </div>
@@ -635,7 +783,7 @@ export default function UserManager() {
             <div className="col-span-full lg:col-span-1 mt-2 lg:mt-0">
               <button 
                 type="submit"
-                disabled={isSubmitting || !newName || !newEmail || newPassword.length < 6}
+                disabled={isSubmitting || !newName || (newRole !== 'student' && (!newEmail || newPassword.length < 6))}
                 className="btn-slate w-full py-2.5 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? 'Creating...' : <><UserPlus className="w-4 h-4" /> Create User</>}
@@ -650,9 +798,10 @@ export default function UserManager() {
           <thead>
             <tr className="text-left sticky top-0 bg-white z-10">
               <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px]">Registry Identity</th>
+              <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px]">Grade / Section</th>
               <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px]">Email Address</th>
               <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px]">Points</th>
-              <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px]">System Role</th>
+              <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px]">Role</th>
               <th className="p-3 border-b border-border-theme text-text-muted font-bold uppercase tracking-wider text-[10px] text-right">Actions</th>
             </tr>
           </thead>
@@ -673,12 +822,13 @@ export default function UserManager() {
                             onChange={(e) => setEditName(e.target.value)}
                             className="bg-white border border-border-theme p-1 rounded text-[13px] font-bold w-full"
                           />
-                          {editRole === 'student' && (
+                          {(editRole === 'student' || editRole === 'teacher') && (
                             <select 
-                              value={editHouseId}
+                              value={editHouseId || ''}
                               onChange={(e) => setEditHouseId(e.target.value)}
                               className="bg-white border border-border-theme p-1 rounded text-[10px] font-bold uppercase"
                             >
+                              <option value="">No House</option>
                               {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                             </select>
                           )}
@@ -706,9 +856,34 @@ export default function UserManager() {
                   </div>
                 </td>
                 <td className="p-3 border-b border-slate-50">
+                   {editingId === u.uid && (u.role === 'student' || u.role === 'teacher') ? (
+                     <div className="flex gap-1">
+                       <input 
+                         type="text" 
+                         value={editGrade} 
+                         onChange={(e) => setEditGrade(e.target.value)}
+                         placeholder="Grade"
+                         className="w-12 bg-white border border-slate-200 p-1 rounded text-[11px]"
+                       />
+                       <input 
+                         type="text" 
+                         value={editSection} 
+                         onChange={(e) => setEditSection(e.target.value)}
+                         placeholder="Sec"
+                         className="w-12 bg-white border border-slate-200 p-1 rounded text-[11px]"
+                       />
+                     </div>
+                   ) : (
+                     <div className="flex items-center gap-1 text-[12px] font-bold text-slate-500">
+                        {u.grade ? `Grade ${u.grade}` : '—'}
+                        {u.section && ` • ${u.section}`}
+                     </div>
+                   )}
+                </td>
+                <td className="p-3 border-b border-slate-50">
                    <div className="flex items-center gap-2 text-slate-500">
                       <Mail className="w-3 h-3 text-slate-300" />
-                      <span className="font-medium">{u.email || 'No email registered'}</span>
+                      <span className="font-medium text-[12px]">{u.email || 'Registry Record'}</span>
                    </div>
                 </td>
                 <td className="p-3 border-b border-slate-50">
@@ -847,6 +1022,82 @@ export default function UserManager() {
           </div>
         </div>
       )}
+      </motion.div>
+    ) : mgmtTab === 'classes' ? (
+      <motion.div
+            key="classes"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="flex-1 overflow-auto"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+              {classGroups.map(([group, members]) => (
+                <button 
+                  key={group}
+                  onClick={() => {
+                    setMgmtTab('all');
+                    setSearchTerm(group.replace('Grade ', ''));
+                    setFilterRole('all');
+                  }}
+                  className="p-6 bg-white border border-slate-100 rounded-[32px] hover:border-slate-300 transition-all text-left group shadow-sm hover:shadow-md"
+                >
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 group-hover:scale-110 transition-transform">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-[18px] font-black text-slate-900 leading-tight mb-1">{group}</h3>
+                  <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">{members.length} Registry Records</p>
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="text-[10px] font-black underline text-blue-600">View Roster</span>
+                    <ChevronRight className="w-3 h-3 text-blue-600" />
+                  </div>
+                </button>
+              ))}
+              {classGroups.length === 0 && (
+                <div className="col-span-full py-12 text-center text-slate-400 font-bold">No grades found in registry.</div>
+              )}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="houses"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="flex-1 overflow-auto"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+              {houseGroups.map(([house, members]) => {
+                const config = HOUSES.find(h => h.id === house) || { name: house, color: '#94a3b8' };
+                return (
+                  <button 
+                    key={house}
+                    onClick={() => {
+                      setMgmtTab('all');
+                      setSearchTerm(house);
+                      setFilterRole('all');
+                    }}
+                    className="p-6 bg-white border border-slate-100 rounded-[32px] hover:border-slate-300 transition-all text-left group shadow-sm hover:shadow-md"
+                  >
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform" style={{ backgroundColor: `${config.color}15`, color: config.color }}>
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-[18px] font-black text-slate-900 leading-tight mb-1 capitalize">{config.name}</h3>
+                    <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">{members.length} Members</p>
+                    <div className="mt-4 flex items-center gap-2">
+                      <span className="text-[10px] font-black underline" style={{ color: config.color }}>Manage House List</span>
+                      <ChevronRight className="w-3 h-3" style={{ color: config.color }} />
+                    </div>
+                  </button>
+                );
+              })}
+              {houseGroups.length === 0 && (
+                <div className="col-span-full py-12 text-center text-slate-400 font-bold">No house assignments found.</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

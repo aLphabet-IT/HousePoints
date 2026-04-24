@@ -9,38 +9,47 @@
         "name": { "type": "string" },
         "email": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "teacher", "student"] },
-        "houseId": { "type": "string", "description": "Applicable for students" }
+        "houseId": { "type": "string", "description": "Applicable for students" },
+        "points": { "type": "number", "description": "Current academic year points" },
+        "grade": { "type": "string" },
+        "section": { "type": "string" }
       },
       "required": ["uid", "name", "role"]
     },
-    "House": {
-      "title": "House",
-      "description": "House details and current point totals.",
+    "AcademicYear": {
+      "title": "Academic Year",
+      "description": "Historical record of an academic year's performance.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "totalPoints": { "type": "number" },
-        "rank": { "type": "number" },
-        "lastUpdated": { "type": "number" }
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "houseStats": { 
+          "type": "object",
+          "description": "Final points for each house in this year"
+        }
       },
-      "required": ["id", "name", "totalPoints", "rank"]
+      "required": ["id", "name"]
     },
     "PointLog": {
       "title": "Point Log",
       "description": "Historical log of point transactions.",
       "type": "object",
       "properties": {
+        "academicYear": { "type": "string" },
         "houseId": { "type": "string" },
         "points": { "type": "number" },
         "reason": { "type": "string" },
         "category": { "type": "string" },
         "awardedBy": { "type": "string" },
         "awardedByUid": { "type": "string" },
+        "targetUid": { "type": "string" },
+        "targetName": { "type": "string" },
         "role": { "type": "string" },
         "timestamp": { "type": "number" }
       },
-      "required": ["houseId", "points", "reason", "awardedBy", "timestamp"]
+      "required": ["academicYear", "houseId", "points", "reason", "awardedBy", "timestamp"]
     },
     "PointReason": {
       "title": "Point Reason",
@@ -71,17 +80,21 @@
       "schema": "SystemConfig",
       "description": "Global system settings."
     },
+    "academicYears/{yearId}": {
+      "schema": "AcademicYear",
+      "description": "Yearly historical summaries."
+    },
     "users/{userId}": {
       "schema": "User",
       "description": "Individual user records."
     },
     "houses/{houseId}": {
       "schema": "House",
-      "description": "House point aggregations."
+      "description": "Current year house point aggregations."
     },
     "pointsLog/{logId}": {
       "schema": "PointLog",
-      "description": "Transaction logs for point changes."
+      "description": "Transaction logs indexed by academic year."
     },
     "pointReasons/{reasonId}": {
       "schema": "PointReason",

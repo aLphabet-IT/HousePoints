@@ -5,7 +5,7 @@ import { HOUSES, PointReason } from '../types';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { addPoints } from '../hooks/useFirestore';
+import { addPoints, useSystemConfig } from '../hooks/useFirestore';
 import { cn } from '../lib/utils';
 
 interface HousePointModalProps {
@@ -15,6 +15,7 @@ interface HousePointModalProps {
 
 export default function HousePointModal({ isOpen, onClose }: HousePointModalProps) {
   const { user } = useAuth();
+  const { config } = useSystemConfig();
   const [selectedHouseId, setSelectedHouseId] = useState(HOUSES[0].id);
   const [reasons, setReasons] = useState<PointReason[]>([]);
   const [selectedReasonId, setSelectedReasonId] = useState('');
@@ -58,6 +59,7 @@ export default function HousePointModal({ isOpen, onClose }: HousePointModalProp
 
     try {
       await addPoints(
+        config?.academicYear || new Date().getFullYear().toString(),
         selectedHouseId,
         points,
         customReason || "Awarded points",

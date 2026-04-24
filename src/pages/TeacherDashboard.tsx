@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useHouses, useLogs, addPoints, usePointReasons } from '../hooks/useFirestore';
+import { useHouses, useLogs, addPoints, usePointReasons, useSystemConfig } from '../hooks/useFirestore';
 import { HOUSES, PointReason } from '../types';
 import HouseCard from '../components/HouseCard';
 import Leaderboard from '../components/Leaderboard';
@@ -13,8 +13,9 @@ import { cn } from '../lib/utils';
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { config } = useSystemConfig();
   const { houses } = useHouses();
-  const { logs } = useLogs(20);
+  const { logs } = useLogs(config?.academicYear, 20);
   const { reasons } = usePointReasons();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   
@@ -46,6 +47,7 @@ export default function TeacherDashboard() {
     setIsSubmitting(true);
     try {
       await addPoints(
+        config?.academicYear || new Date().getFullYear().toString(),
         selectedHouse, 
         points, 
         customReason || "Awarded points", 
@@ -117,7 +119,7 @@ export default function TeacherDashboard() {
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className={cn(
-                "fixed inset-y-0 left-0 w-[280px] bg-white border-r border-slate-100 p-6 flex flex-col gap-1 z-50 shadow-2xl overflow-hidden"
+                "fixed inset-y-0 left-0 w-[240px] bg-white border-r border-slate-100 p-6 flex flex-col gap-1 z-50 shadow-2xl overflow-hidden"
               )}
             >
                <div className="flex items-center justify-between mb-8">
@@ -152,7 +154,7 @@ export default function TeacherDashboard() {
         </AnimatePresence>
 
         {/* Desktop Sidebar (Always Visible) */}
-        <nav className="hidden lg:flex flex-col w-[240px] bg-white border-r border-slate-100 p-5 gap-1 shrink-0">
+        <nav className="hidden lg:flex flex-col w-[200px] bg-white border-r border-slate-100 p-5 gap-1 shrink-0">
            <button 
              className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-bold bg-[#eff6ff] text-slate-900 text-left"
            >
