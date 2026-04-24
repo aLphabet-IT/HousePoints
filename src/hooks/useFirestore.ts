@@ -1,7 +1,142 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, limit, doc, increment, writeBatch, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, increment, writeBatch, serverTimestamp, setDoc, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import { House, PointLog, User, HOUSES } from '../types';
+import { House, PointLog, User, HOUSES, PointReason, PointCategory } from '../types';
+import { handleFirestoreError } from '../lib/utils';
+
+export interface SystemConfig {
+  academicYear: string;
+  lastResetAt?: number;
+  resetBy?: string;
+}
+
+export function useSystemConfig() {
+  const [config, setConfig] = useState<SystemConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const docRef = doc(db, 'system', 'config');
+    return onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setConfig(snapshot.data() as SystemConfig);
+      } else {
+        setConfig({ academicYear: new Date().getFullYear().toString() });
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  return { config, loading };
+}
+
+export async function updateAcademicYear(year: string, adminName: string) {
+  try {
+    const docRef = doc(db, 'system', 'config');
+    await setDoc(docRef, {
+      academicYear: year,
+      updatedAt: Date.now(),
+      updatedBy: adminName
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, 'update', 'system/config');
+  }
+}
+
+export async function performSystemReset(newYear: string, currentAdminUid: string, adminName: string) {
+  try {
+    const batch = writeBatch(db);
+
+    // 1. Update System Config
+    const configRef = doc(db, 'system', 'config');
+    batch.set(configRef, {
+      academicYear: newYear,
+      lastResetAt: Date.now(),
+      resetBy: adminName
+    }, { merge: true });
+
+    // 2. Reset Houses
+    const housesSnap = await getDocs(collection(db, 'houses'));
+    housesSnap.forEach(h => {
+      batch.update(h.ref, { totalPoints: 0, lastUpdated: Date.now() });
+    });
+
+    // 3. Clear Logs (up to 400 at a time)
+    const logsSnap = await getDocs(query(collection(db, 'pointsLog'), limit(400)));
+    logsSnap.forEach(l => batch.delete(l.ref));
+
+    // 4. Delete Users (except self)
+    const usersSnap = await getDocs(query(collection(db, 'users'), limit(400)));
+    usersSnap.forEach(u => {
+      if (u.id !== currentAdminUid) {
+        batch.delete(u.ref);
+      } else {
+        // Reset admin's own points
+        batch.update(u.ref, { points: 0 });
+      }
+    });
+
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, 'write', 'System Reset');
+    throw error;
+  }
+}
+
+export function usePointReasons() {
+  const [reasons, setReasons] = useState<PointReason[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'pointReasons'), orderBy('label', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+      const reasonsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as PointReason));
+      setReasons(reasonsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore error in usePointReasons:", error);
+      setLoading(false);
+    });
+  }, []);
+
+  return { reasons, loading };
+}
+
+export async function addPointReason(label: string, points: number, category: PointCategory) {
+  try {
+    const docRef = doc(collection(db, 'pointReasons'));
+    await setDoc(docRef, {
+      id: docRef.id,
+      label,
+      points,
+      category
+    });
+  } catch (error) {
+    handleFirestoreError(error, 'create', 'pointReasons');
+  }
+}
+
+export async function updatePointReason(id: string, label: string, points: number, category: PointCategory) {
+  try {
+    await setDoc(doc(db, 'pointReasons', id), {
+      id,
+      label,
+      points,
+      category
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, 'update', `pointReasons/${id}`);
+  }
+}
+
+export async function deletePointReason(id: string) {
+  try {
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'pointReasons', id));
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, 'delete', `pointReasons/${id}`);
+  }
+}
 
 export function useHouses() {
   const [houses, setHouses] = useState<House[]>([]);
@@ -15,11 +150,17 @@ export function useHouses() {
       // Explicitly sort local data by points DESC to guarantee rank accuracy
       const sortedByPoints = [...housesData].sort((a, b) => b.totalPoints - a.totalPoints);
 
-      // Calculate dynamic rank based on sorted points
-      const rankedHouses = sortedByPoints.map((house, index) => ({
-        ...house,
-        rank: index + 1
-      }));
+      // Calculate dynamic rank based on sorted points (handling ties)
+      let currentRank = 1;
+      const rankedHouses = sortedByPoints.map((house, index) => {
+        if (index > 0 && house.totalPoints < sortedByPoints[index - 1].totalPoints) {
+          currentRank = index + 1;
+        }
+        return {
+          ...house,
+          rank: currentRank
+        };
+      });
       
       // Only attempt initialization if houses are truly empty
       if (rankedHouses.length === 0 && houses.length === 0 && auth.currentUser) {
@@ -121,28 +262,33 @@ export function useNeedsBoostStudents(studentsLimit = 10) {
   return { students, loading };
 }
 
+
 export async function addPoints(houseId: string, points: number, reason: string, category: string, awardedBy: string, awardedByUid: string, role: string) {
-  const batch = writeBatch(db);
-  
-  const houseRef = doc(db, 'houses', houseId);
-  batch.update(houseRef, {
-    totalPoints: increment(points),
-    lastUpdated: Date.now()
-  });
+  try {
+    const batch = writeBatch(db);
+    
+    const houseRef = doc(db, 'houses', houseId);
+    batch.update(houseRef, {
+      totalPoints: increment(points),
+      lastUpdated: Date.now()
+    });
 
-  const logRef = doc(collection(db, 'pointsLog'));
-  batch.set(logRef, {
-    houseId,
-    points,
-    reason,
-    category,
-    awardedBy,
-    awardedByUid,
-    role,
-    timestamp: serverTimestamp()
-  });
+    const logRef = doc(collection(db, 'pointsLog'));
+    batch.set(logRef, {
+      houseId,
+      points,
+      reason,
+      category,
+      awardedBy,
+      awardedByUid,
+      role,
+      timestamp: serverTimestamp()
+    });
 
-  await batch.commit();
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, 'write', `houses/${houseId} + pointsLog`);
+  }
 }
 
 export async function awardPointsToStudent(
@@ -156,34 +302,38 @@ export async function awardPointsToStudent(
   awardedByUid: string, 
   role: string
 ) {
-  const batch = writeBatch(db);
-  
-  const houseRef = doc(db, 'houses', houseId);
-  batch.update(houseRef, {
-    totalPoints: increment(points),
-    lastUpdated: Date.now()
-  });
+  try {
+    const batch = writeBatch(db);
+    
+    const houseRef = doc(db, 'houses', houseId);
+    batch.update(houseRef, {
+      totalPoints: increment(points),
+      lastUpdated: Date.now()
+    });
 
-  const studentRef = doc(db, 'users', studentId);
-  batch.update(studentRef, {
-    points: increment(points)
-  });
+    const studentRef = doc(db, 'users', studentId);
+    batch.update(studentRef, {
+      points: increment(points)
+    });
 
-  const logRef = doc(collection(db, 'pointsLog'));
-  batch.set(logRef, {
-    houseId,
-    points,
-    reason,
-    category,
-    awardedBy,
-    awardedByUid,
-    targetUid: studentId,
-    targetName: studentName,
-    role,
-    timestamp: serverTimestamp()
-  });
+    const logRef = doc(collection(db, 'pointsLog'));
+    batch.set(logRef, {
+      houseId,
+      points,
+      reason,
+      category,
+      awardedBy,
+      awardedByUid,
+      targetUid: studentId,
+      targetName: studentName,
+      role,
+      timestamp: serverTimestamp()
+    });
 
-  await batch.commit();
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, 'write', `houses/${houseId} + users/${studentId} + pointsLog`);
+  }
 }
 
 export function useUserCount(role?: string) {

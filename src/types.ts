@@ -1,3 +1,5 @@
+import React from 'react';
+
 export type UserRole = 'admin' | 'teacher' | 'student';
 
 export interface User {
@@ -18,6 +20,13 @@ export interface House {
 }
 
 export type PointCategory = 'academic' | 'sport' | 'behavior' | 'participation' | 'other';
+
+export interface PointReason {
+  id: string;
+  label: string;
+  points: number;
+  category: PointCategory;
+}
 
 export interface PointLog {
   id: string;
@@ -47,3 +56,11 @@ export const POINT_CATEGORIES: { id: PointCategory; label: string }[] = [
   { id: 'participation', label: 'Participation' },
   { id: 'other', label: 'Other' },
 ];
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'dotlottie-wc': any;
+    }
+  }
+}

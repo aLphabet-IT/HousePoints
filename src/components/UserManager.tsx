@@ -553,20 +553,20 @@ export default function UserManager() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 p-6 bg-slate-100 border border-slate-200 rounded-2xl shadow-inner"
         >
-          <form onSubmit={handleAddUser} className="grid grid-cols-6 gap-4 items-end">
-            <div className="col-span-1 flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Full Name</label>
+          <form onSubmit={handleAddUser} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 items-end">
+            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+              <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Full Name</label>
               <input 
                 type="text" 
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g. John Doe"
                 required
-                className="bg-white border border-border-theme p-2 rounded-lg text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
               />
             </div>
-            <div className="col-span-1 flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address</label>
+            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+              <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address</label>
               <div className="relative">
                 <input 
                   type="email" 
@@ -574,13 +574,19 @@ export default function UserManager() {
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="name@gmail.com"
                   required
-                  className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                  className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
                 />
                 <Mail className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               </div>
             </div>
-            <div className="col-span-1 flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Set Password</label>
+            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Set Password</label>
+                <p className={cn(
+                  "text-[8px] sm:text-[9px] font-medium transition-colors",
+                  newPassword.length > 0 && newPassword.length < 6 ? "text-red-500" : "text-slate-400"
+                )}>Min. 6</p>
+              </div>
               <div className="relative">
                 <input 
                   type="password" 
@@ -588,49 +594,45 @@ export default function UserManager() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                  className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
                 />
                 <Lock className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               </div>
-              <p className={cn(
-                "text-[9px] font-medium transition-colors",
-                newPassword.length > 0 && newPassword.length < 6 ? "text-red-500" : "text-slate-400"
-              )}>Min. 6 characters</p>
             </div>
-            <div className="col-span-1 flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">System Role</label>
+            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+              <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">System Role</label>
               <select 
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value as UserRole)}
-                className="bg-white border border-border-theme p-2 rounded-lg text-[13px] font-bold"
+                className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-bold"
               >
                 <option value="admin">Admin</option>
                 <option value="teacher">Teacher</option>
                 <option value="student">Student</option>
               </select>
             </div>
-            <div className="col-span-1 flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider opacity-50">House (Optional)</label>
+            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+              <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider opacity-50">House (Optional)</label>
               <select 
                 value={newHouseId}
                 disabled={newRole !== 'student'}
                 onChange={(e) => setNewHouseId(e.target.value)}
-                className="bg-white border border-border-theme p-2 rounded-lg text-[13px] font-bold disabled:opacity-40"
+                className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-bold disabled:opacity-40"
               >
                 {HOUSES.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </div>
-            <div className="col-span-1 flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Starting Points</label>
+            <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+              <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Points</label>
               <input 
                 type="number"
                 value={newPoints}
                 disabled={newRole !== 'student'}
                 onChange={(e) => setNewPoints(Number(e.target.value))}
-                className="bg-white border border-border-theme p-2 rounded-lg text-[13px] font-bold disabled:opacity-40"
+                className="bg-white border border-border-theme p-2 rounded-lg text-[12px] sm:text-[13px] font-bold disabled:opacity-40"
               />
             </div>
-            <div className="col-span-1">
+            <div className="col-span-full lg:col-span-1 mt-2 lg:mt-0">
               <button 
                 type="submit"
                 disabled={isSubmitting || !newName || !newEmail || newPassword.length < 6}

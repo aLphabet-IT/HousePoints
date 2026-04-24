@@ -5,13 +5,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { History, Plus, Minus, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export default function ActivityFeed({ logs }: { logs: PointLog[] }) {
+export default function ActivityFeed({ logs, rowsPerPage = 6 }: { logs: PointLog[]; rowsPerPage?: number }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
+  const scrollLock = React.useRef<number>(0);
 
-  // Reset to first page if logs change significantly (e.g. filter or refresh)
-  // But we want to handle this gracefully if logs are just streaming in.
-  
   const totalPages = Math.ceil(logs.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const currentLogs = logs.slice(startIndex, startIndex + rowsPerPage);
@@ -24,8 +21,28 @@ export default function ActivityFeed({ logs }: { logs: PointLog[] }) {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    const now = Date.now();
+    if (now - scrollLock.current < 600) return;
+    
+    if (e.deltaY > 20) {
+      if (currentPage < totalPages) {
+        goToNext();
+        scrollLock.current = now;
+      }
+    } else if (e.deltaY < -20) {
+      if (currentPage > 1) {
+        goToPrev();
+        scrollLock.current = now;
+      }
+    }
+  };
+
   return (
-    <div className="card h-full flex flex-col">
+    <div 
+      className="card h-full flex flex-col"
+      onWheel={handleWheel}
+    >
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="panel-title text-[14px] font-bold text-text-main flex items-center gap-2">
           <History className="w-4 h-4 text-slate-grey" />

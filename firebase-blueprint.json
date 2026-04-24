@@ -41,9 +41,36 @@
         "timestamp": { "type": "number" }
       },
       "required": ["houseId", "points", "reason", "awardedBy", "timestamp"]
+    },
+    "PointReason": {
+      "title": "Point Reason",
+      "description": "Configurable reasons and point values for awarding points.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "points": { "type": "number" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "label", "points", "category"]
+    },
+    "SystemConfig": {
+      "title": "System Configuration",
+      "description": "Global settings for the application.",
+      "type": "object",
+      "properties": {
+        "academicYear": { "type": "string" },
+        "lastResetAt": { "type": "number" },
+        "resetBy": { "type": "string" }
+      },
+      "required": ["academicYear"]
     }
   },
   "firestore": {
+    "system/config": {
+      "schema": "SystemConfig",
+      "description": "Global system settings."
+    },
     "users/{userId}": {
       "schema": "User",
       "description": "Individual user records."
@@ -55,6 +82,10 @@
     "pointsLog/{logId}": {
       "schema": "PointLog",
       "description": "Transaction logs for point changes."
+    },
+    "pointReasons/{reasonId}": {
+      "schema": "PointReason",
+      "description": "Configurable point reasons."
     }
   }
 }
