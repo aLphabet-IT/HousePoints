@@ -19,6 +19,7 @@ export default function UserManager() {
   const [editHouseId, setEditHouseId] = useState<string | undefined>(undefined);
   const [editGrade, setEditGrade] = useState('');
   const [editSection, setEditSection] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -165,7 +166,7 @@ export default function UserManager() {
         role: newRole,
       };
 
-      if (newRole !== 'student') {
+      if (newRole !== 'student' || newEmail) {
         newUser.email = newEmail;
       }
 
@@ -241,6 +242,7 @@ export default function UserManager() {
     setEditHouseId(u.houseId);
     setEditGrade(u.grade || '');
     setEditSection(u.section || '');
+    setEditEmail(u.email || '');
   };
 
   const handleSaveEdit = async (uid: string) => {
@@ -248,6 +250,7 @@ export default function UserManager() {
       const updates: any = { 
         name: editName,
         role: editRole,
+        email: editEmail || null,
       };
 
       if (editRole === 'student' || editRole === 'teacher') {
@@ -365,8 +368,8 @@ export default function UserManager() {
         role: validatedRole,
       };
 
-      if (validatedRole !== 'student') {
-        newUser.email = email.trim().toLowerCase();
+      if (validatedRole !== 'student' || email) {
+        newUser.email = email ? email.trim().toLowerCase() : undefined;
       }
 
       if (validatedRole === 'student') {
@@ -722,6 +725,19 @@ export default function UserManager() {
             ) : (
               <>
                 <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
+                  <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Email (Optional)</label>
+                  <div className="relative">
+                    <input 
+                      type="email" 
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="student@alphabet.school"
+                      className="w-full bg-white border border-border-theme p-2 pl-8 rounded-lg text-[12px] sm:text-[13px] font-medium focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                    />
+                    <Mail className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+                <div className="col-span-1 flex flex-col gap-1 sm:gap-1.5">
                   <label className="text-[9px] sm:text-[10px] font-bold text-text-muted uppercase tracking-wider">Grade</label>
                   <input 
                     type="text" 
@@ -882,8 +898,23 @@ export default function UserManager() {
                 </td>
                 <td className="p-3 border-b border-slate-50">
                    <div className="flex items-center gap-2 text-slate-500">
-                      <Mail className="w-3 h-3 text-slate-300" />
-                      <span className="font-medium text-[12px]">{u.email || 'Registry Record'}</span>
+                      {editingId === u.uid ? (
+                        <div className="relative w-full">
+                          <input 
+                            type="email"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            placeholder="Email"
+                            className="w-full bg-white border border-slate-200 p-1 pl-6 rounded text-[11px]"
+                          />
+                          <Mail className="w-3 h-3 absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-300" />
+                        </div>
+                      ) : (
+                        <>
+                          <Mail className="w-3 h-3 text-slate-300" />
+                          <span className="font-medium text-[12px]">{u.email || 'Registry Record'}</span>
+                        </>
+                      )}
                    </div>
                 </td>
                 <td className="p-3 border-b border-slate-50">
@@ -1079,14 +1110,32 @@ export default function UserManager() {
                     }}
                     className="p-6 bg-white border border-slate-100 rounded-[32px] hover:border-slate-300 transition-all text-left group shadow-sm hover:shadow-md"
                   >
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform" style={{ backgroundColor: `${config.color}15`, color: config.color }}>
+                    <div className={cn(
+                           "w-12 h-12 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform",
+                           house === 'phoenix' ? "bg-phoenix/10 text-phoenix" :
+                           house === 'pegasus' ? "bg-pegasus/10 text-pegasus" :
+                           house === 'centaur' ? "bg-centaur/10 text-centaur" :
+                           "bg-sphinx/10 text-sphinx"
+                         )}>
                       <Award className="w-6 h-6" />
                     </div>
                     <h3 className="text-[18px] font-black text-slate-900 leading-tight mb-1 capitalize">{config.name}</h3>
                     <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">{members.length} Members</p>
                     <div className="mt-4 flex items-center gap-2">
-                      <span className="text-[10px] font-black underline" style={{ color: config.color }}>Manage House List</span>
-                      <ChevronRight className="w-3 h-3" style={{ color: config.color }} />
+                      <span className={cn(
+                              "text-[10px] font-black underline",
+                              house === 'phoenix' ? "text-phoenix" :
+                              house === 'pegasus' ? "text-pegasus" :
+                              house === 'centaur' ? "text-centaur" :
+                              "text-sphinx"
+                            )}>Manage House List</span>
+                      <ChevronRight className={cn(
+                                     "w-3 h-3",
+                                     house === 'phoenix' ? "text-phoenix" :
+                                     house === 'pegasus' ? "text-pegasus" :
+                                     house === 'centaur' ? "text-centaur" :
+                                     "text-sphinx"
+                                   )} />
                     </div>
                   </button>
                 );

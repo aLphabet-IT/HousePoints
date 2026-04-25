@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useHouses, useLogs, addPoints, usePointReasons, useSystemConfig } from '../hooks/useFirestore';
-import { HOUSES, PointReason } from '../types';
+import { useHouses, useLogs, addPoints, usePointReasons, useSystemConfig, useAllUsers, awardPointsToStudent } from '../hooks/useFirestore';
+import { HOUSES, PointReason, User } from '../types';
 import HouseCard from '../components/HouseCard';
 import Leaderboard from '../components/Leaderboard';
 import ActivityFeed from '../components/ActivityFeed';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Plus, LogOut, Info, BarChart3, Shield, Menu, X } from 'lucide-react';
+import { Sparkles, Plus, LogOut, Info, BarChart3, Shield, Menu, X, Search, User as UserIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function TeacherDashboard() {
@@ -17,9 +17,12 @@ export default function TeacherDashboard() {
   const { houses } = useHouses();
   const { logs } = useLogs(config?.academicYear, 20);
   const { reasons } = usePointReasons();
+  const { users } = useAllUsers();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   
   const [selectedHouse, setSelectedHouse] = useState(HOUSES[0].id);
+  const [selectedStudentUid, setSelectedStudentUid] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [points, setPoints] = useState(1);
@@ -42,29 +45,45 @@ export default function TeacherDashboard() {
 
   const handleAddPoints = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!selectedReasonId && !customReason) || isSubmitting) return;
+    if ((!selectedReasonId && !customReason) || isSubmitting || !selectedStudentUid) return;
 
     setIsSubmitting(true);
     try {
-      await addPoints(
-        config?.academicYear || new Date().getFullYear().toString(),
-        selectedHouse, 
-        points, 
-        customReason || "Awarded points", 
-        category, 
-        user?.name || 'Teacher', 
-        user?.uid || '', 
-        'teacher'
-      );
-      setSelectedReasonId('');
-      setCustomReason('');
-      setPoints(1);
+      const student = users.find(u => u.uid === selectedStudentUid);
+      if (student) {
+        await awardPointsToStudent(
+          config?.academicYear || new Date().getFullYear().toString(),
+          student.uid,
+          student.name,
+          student.houseId || selectedHouse,
+          points,
+          customReason || "Awarded points",
+          category,
+          user?.name || 'Teacher',
+          user?.uid || '',
+          'teacher'
+        );
+        setSelectedReasonId('');
+        setCustomReason('');
+        setPoints(1);
+        setSelectedStudentUid('');
+        setStudentSearch('');
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const filteredStudents = users.filter(u => 
+    u.role === 'student' && 
+    (u.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
+     u.grade?.toLowerCase().includes(studentSearch.toLowerCase()) ||
+     u.section?.toLowerCase().includes(studentSearch.toLowerCase()))
+  ).slice(0, 5);
+
+  const selectedStudent = users.find(u => u.uid === selectedStudentUid);
 
   return (
     <div className="min-h-screen lg:h-screen flex flex-col bg-bg lg:overflow-hidden font-sans">
@@ -133,21 +152,9 @@ export default function TeacherDashboard() {
                   </button>
                </div>
                <button 
-                 className="flex items-center gap-3 p-3 rounded-xl text-[14px] font-bold bg-[#eff6ff] text-slate-900 text-left"
+                 className="flex items-center gap-3 p-3 rounded-xl text-[14px] font-bold bg-[#eff6ff] text-slate-900 text-left w-full"
                >
                  <Sparkles className="w-4 h-4" /> Award Points
-               </button>
-               <button 
-                 className="flex items-center gap-3 p-3 rounded-xl text-[14px] font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors text-left"
-               >
-                 <Plus className="w-4 h-4" /> Recent Entries
-               </button>
-               <div className="my-4 border-t border-slate-100"></div>
-               <button 
-                 onClick={() => navigate('/points')} 
-                 className="flex items-center gap-3 p-3 rounded-xl text-[14px] font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors text-left"
-               >
-                 <Shield className="w-4 h-4" /> House Points Hub
                </button>
             </motion.nav>
           )}
@@ -156,21 +163,9 @@ export default function TeacherDashboard() {
         {/* Desktop Sidebar (Always Visible) */}
         <nav className="hidden lg:flex flex-col w-[200px] bg-white border-r border-slate-100 p-5 gap-1 shrink-0">
            <button 
-             className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-bold bg-[#eff6ff] text-slate-900 text-left"
+             className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-bold bg-[#eff6ff] text-slate-900 text-left w-full"
            >
              <Sparkles className="w-4 h-4" /> Award Points
-           </button>
-           <button 
-             className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-slate-400 hover:bg-slate-50 transition-colors text-left"
-           >
-             <Plus className="w-4 h-4" /> Recent Entries
-           </button>
-           <div className="my-2 border-t border-slate-100 opacity-50"></div>
-           <button 
-             onClick={() => navigate('/points')} 
-             className="flex items-center gap-3 p-2.5 rounded-lg text-[14px] font-medium text-slate-400 hover:bg-slate-50 transition-colors text-left"
-           >
-             <Shield className="w-4 h-4" /> House Points Hub
            </button>
         </nav>
          <div className="flex-1 p-4 sm:p-5 lg:overflow-y-auto custom-scrollbar">
@@ -178,43 +173,116 @@ export default function TeacherDashboard() {
              
              {/* Main Award Section */}
              <div className="lg:col-span-3 space-y-4">
-                <div className="card bg-slate-dark text-white border-none py-6 flex items-center justify-between">
+                <div className="card bg-slate-dark border-none py-6 flex items-center justify-between">
                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center"><Info className="w-5 h-5" /></div>
+                      <div className="w-10 h-10 bg-black/10 rounded-full flex items-center justify-center"><Info className="w-5 h-5 text-black" /></div>
                       <div>
-                        <h3 className="font-bold">Ready to motivate?</h3>
-                        <p className="text-[12px] text-white/60 font-medium">Add points to recognize student achievement.</p>
+                        <h3 className="font-bold text-black">Ready to motivate?</h3>
+                        <p className="text-[12px] text-black/80 font-medium">Add points to recognize student achievement.</p>
                       </div>
                    </div>
                 </div>
 
-                <div className="card">
+                 <div className="card">
                    <div className="panel-title text-[15px] sm:text-[16px] font-bold mb-4 sm:mb-6">Point Contribution Form</div>
                     <form onSubmit={handleAddPoints} className="space-y-5 sm:space-y-6">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                        {HOUSES.map((h) => (
-                          <button
-                            key={h.id}
-                            type="button"
-                            onClick={() => setSelectedHouse(h.id)}
-                            className={`p-3 sm:p-4 rounded-xl border-2 transition-all text-[11px] sm:text-[12px] font-bold uppercase tracking-wider ${
-                              selectedHouse === h.id 
-                              ? 'border-slate-dark bg-slate-dark text-white' 
-                              : 'border-slate-50 bg-white text-text-muted hover:border-border-theme'
-                            }`}
-                          >
-                            {h.name}
-                          </button>
-                        ))}
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-bold text-text-muted uppercase">Target Student</label>
+                          <div className="relative">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                              <Search className="w-4 h-4" />
+                            </div>
+                            <input 
+                              type="text"
+                              placeholder="Search student by name, grade, or section..."
+                              value={studentSearch}
+                              onChange={(e) => {
+                                setStudentSearch(e.target.value);
+                                if (selectedStudentUid) setSelectedStudentUid('');
+                              }}
+                              className="w-full bg-slate-50 border border-border-theme pl-10 pr-3 py-3 rounded-lg text-sm font-semibold"
+                            />
+                            {studentSearch && !selectedStudentUid && (
+                              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-10 overflow-hidden divide-y divide-slate-50">
+                                {filteredStudents.length > 0 ? (
+                                  filteredStudents.map(student => (
+                                    <button
+                                      key={student.uid}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedStudentUid(student.uid);
+                                        setStudentSearch(student.name);
+                                        if (student.houseId) setSelectedHouse(student.houseId);
+                                      }}
+                                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                    >
+                                      <div className={cn(
+                                        "w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold uppercase",
+                                        student.houseId === 'phoenix' ? "bg-phoenix" :
+                                        student.houseId === 'pegasus' ? "bg-pegasus" :
+                                        student.houseId === 'centaur' ? "bg-centaur" :
+                                        student.houseId === 'sphinx' ? "bg-sphinx" : "bg-slate-400"
+                                      )}>
+                                        {student.name.substring(0, 2)}
+                                      </div>
+                                      <div>
+                                        <p className="text-[13px] font-bold text-slate-900">{student.name}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                                          Grade {student.grade}{student.section} • {student.houseId || 'No House'}
+                                        </p>
+                                      </div>
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-3 text-[12px] text-slate-400 italic">No students found</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {selectedStudent && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200"
+                            >
+                              <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center text-white",
+                                selectedStudent.houseId === 'phoenix' ? "bg-phoenix" :
+                                selectedStudent.houseId === 'pegasus' ? "bg-pegasus" :
+                                selectedStudent.houseId === 'centaur' ? "bg-centaur" :
+                                selectedStudent.houseId === 'sphinx' ? "bg-sphinx" : "bg-slate-400"
+                              )}>
+                                <UserIcon className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-[14px] font-black text-slate-900">{selectedStudent.name}</p>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">
+                                  Grade {selectedStudent.grade}{selectedStudent.section} • {selectedStudent.houseId}
+                                </p>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  setSelectedStudentUid('');
+                                  setStudentSearch('');
+                                }}
+                                className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </motion.div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div className="flex flex-col gap-2">
                            <label className="text-[10px] font-bold text-text-muted uppercase">Reason Selection</label>
                            <select 
                              value={selectedReasonId}
                              onChange={(e) => handleReasonChange(e.target.value)}
-                             className="bg-slate-50 border border-border-theme p-3 rounded-lg text-sm sm:text-[14px] font-semibold"
+                             className="w-full bg-slate-50 border border-border-theme p-3 rounded-lg text-sm sm:text-[14px] font-semibold"
                            >
                              <option value="">Select a pre-configured reason</option>
                              {reasons.map(r => (
@@ -222,15 +290,6 @@ export default function TeacherDashboard() {
                              ))}
                              <option value="custom">-- Custom Reason --</option>
                            </select>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                           <label className="text-[10px] font-bold text-text-muted uppercase">Points</label>
-                           <input 
-                             type="number" 
-                             value={points} 
-                             onChange={(e) => setPoints(Number(e.target.value))}
-                             className="bg-slate-50 border border-border-theme p-3 rounded-lg text-sm sm:text-[16px] font-bold"
-                           />
                         </div>
 
                         {(selectedReasonId === 'custom' || selectedReasonId === '') && (
@@ -269,10 +328,14 @@ export default function TeacherDashboard() {
                       </div>
 
                       <button 
-                        disabled={isSubmitting || (!selectedReasonId && !customReason)}
-                        className="btn-slate w-full py-3 sm:py-3.5 text-[14px]"
+                        disabled={isSubmitting || !selectedStudentUid || (!selectedReasonId && !customReason)}
+                        className={cn(
+                          "w-full py-3 sm:py-3.5 text-[14px] rounded-[8px] font-semibold transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed",
+                          selectedStudentUid ? (selectedStudent?.houseId ? HOUSES.find(h => h.id === selectedStudent.houseId)?.color : "bg-slate-900") : "bg-slate-200 text-slate-400",
+                          selectedStudentUid && "text-white shadow-lg shadow-slate-200"
+                        )}
                       >
-                        {isSubmitting ? 'Processing...' : 'Submit Entry'}
+                        {isSubmitting ? 'Processing...' : selectedStudentUid ? 'Submit Entry' : 'Select a Student to Continue'}
                       </button>
                    </form>
                 </div>

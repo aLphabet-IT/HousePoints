@@ -381,3 +381,22 @@ export function useUserCount(role?: string) {
 
   return { count, loading };
 }
+
+export function useAllUsers() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'), orderBy('name', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
+      setUsers(usersData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore error in useAllUsers:", error);
+      setLoading(false);
+    });
+  }, []);
+
+  return { users, loading };
+}

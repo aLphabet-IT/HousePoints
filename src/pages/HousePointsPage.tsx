@@ -115,18 +115,6 @@ export default function HousePointsPage() {
                        animate={{ scale: 1, opacity: 1, y: 0 }}
                        className="flex flex-col items-center gap-2 sm:gap-4 flex-1 relative"
                     >
-                       <motion.div 
-                         initial={{ opacity: 0, scale: 0.5 }}
-                         animate={{ opacity: 1, scale: 1 }}
-                         className="absolute -top-8 sm:-top-12 -right-6 sm:-right-8 w-16 h-16 sm:w-24 sm:h-24 z-20 pointer-events-none"
-                       >
-                          <dotlottie-wc 
-                            src="https://lottie.host/7db9475b-0625-4088-810a-871dd07f6dad/HHKsC52X5R.lottie" 
-                            style={{ width: '100%', height: '100%' }} 
-                            autoplay 
-                            loop 
-                          />
-                       </motion.div>
                        <Trophy className="w-6 h-6 sm:w-10 sm:h-10 text-amber-400 mb-1 sm:mb-2 filter drop-shadow-[0_0_20px_rgba(251,191,36,0.5)]" />
                        <div className="w-full h-32 sm:h-44 bg-white border border-white rounded-t-[24px] sm:rounded-t-[40px] flex flex-col items-center justify-end pb-4 sm:pb-8 relative shadow-[0_0_80px_rgba(255,255,255,0.1)]">
                           <div className="text-[60px] sm:text-[120px] font-black absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-900 opacity-5">1</div>

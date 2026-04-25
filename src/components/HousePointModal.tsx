@@ -145,8 +145,11 @@ export default function HousePointModal({ isOpen, onClose }: HousePointModalProp
                             className={cn(
                               "px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border-2 text-[11px] sm:text-[13px] font-black uppercase tracking-wider transition-all",
                               selectedHouseId === h.id 
-                                ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-200" 
-                                : "bg-white border-slate-100 text-slate-400 hover:border-slate-300"
+                                ? `${h.color} border-transparent text-white shadow-lg shadow-slate-200` 
+                                : h.id === 'phoenix' ? "bg-white border-phoenix text-slate-900 hover:bg-phoenix/5" :
+                                  h.id === 'pegasus' ? "bg-white border-pegasus text-slate-900 hover:bg-pegasus/5" :
+                                  h.id === 'centaur' ? "bg-white border-centaur text-slate-900 hover:bg-centaur/5" :
+                                  "bg-white border-sphinx text-slate-900 hover:bg-sphinx/5"
                             )}
                           >
                             {h.name}
@@ -245,7 +248,11 @@ export default function HousePointModal({ isOpen, onClose }: HousePointModalProp
                     <button
                       type="submit"
                       disabled={!selectedHouseId || (!selectedReasonId && !customReason) || isSubmitting}
-                      className="flex-[1.5] h-[48px] sm:h-[56px] bg-slate-900 rounded-full text-[14px] sm:text-[16px] font-black text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2 active:scale-95"
+                      className={cn(
+                        "flex-[1.5] h-[48px] sm:h-[56px] rounded-full text-[14px] sm:text-[16px] font-black text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl flex items-center justify-center gap-2 active:scale-95",
+                        selectedHouseId ? HOUSES.find(h => h.id === selectedHouseId)?.color : "bg-slate-900",
+                        "shadow-slate-200"
+                      )}
                     >
                       {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Award Points'}
                     </button>
